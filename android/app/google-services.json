@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "935421872654",
+    "project_id": "basobaas-14059",
+    "storage_bucket": "basobaas-14059.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:935421872654:android:7967c88f06e1c83a6a8a5f",
+        "android_client_info": {
+          "package_name": "com.basobaas.app.basobaas_map"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA43RvzokQQdQw37WrcGuQTUQk2jMY1mFc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
