@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'login_page.dart';
+import 'login/login_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -9,9 +9,9 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     // Example user data (replace with your real data)
     final String fullName = "Ashim Sapkota";
-    final String phoneNumber = "+977 9800000000";
+    final String phoneNumber = "+977 9864073201";
     final bool isPhoneVerified = true;
-    final String email = "ashim@example.com";
+    final String email = "ashimsap@gmail.com";
     final String verificationStatus = "Verified Owner";
     final int activeListings = 3;
     final int savedRentals = 5;
@@ -26,7 +26,7 @@ class ProfilePage extends StatelessWidget {
             CircleAvatar(
               radius: 60,
               backgroundColor: Colors.grey[300],
-              backgroundImage: NetworkImage('https://scontent.fktm8-1.fna.fbcdn.net/v/t39.30808-6/328896197_580658850616398_4946101284792458931_n.jpg?_nc_cat=102&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=GGcL4LDsA_8Q7kNvwHxYOcy&_nc_oc=AdmJKkleJTQXuRYlnab74NOWHEo8k7Ik6JCJeIR7XAv6mACAMNwOiQCozPGizwDX5VN8yMcKLSACKDZuzNTx5QK4&_nc_zt=23&_nc_ht=scontent.fktm8-1.fna&_nc_gid=vH20_mJlC_TknlsRqA7n5A&oh=00_AfS6aJS42ZmicNJNBLbsI7kuGjVN-KZsrxTk7LRIlrLEAw&oe=6895275D'),
+              backgroundImage: NetworkImage('https://scontent.fktm19-1.fna.fbcdn.net/v/t39.30808-6/328896197_580658850616398_4946101284792458931_n.jpg?_nc_cat=102&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=XjdyZwYYOxUQ7kNvwH5tCMg&_nc_oc=AdlybDNwIxrTpKBceiIBETen7W9tQoJleLP7z3tU8Sml-GOsNZ7CHcwx1gR_S3DK6DvisD84tf7TitkgrcW2NkVY&_nc_zt=23&_nc_ht=scontent.fktm19-1.fna&_nc_gid=qILz-1tUovDLIfyme9IRtg&oh=00_AfUnG_TfPumhensO4k4QgZQu6PAmo8c1RiLA744TVnao9A&oe=689D489D'),
             ),
             const SizedBox(height: 16),
 

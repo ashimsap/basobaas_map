@@ -14,12 +14,19 @@ final List<Map<String, dynamic>> dummyRooms = [
     'image': 'assets/room2.jpg',
     'verified': false,
   },
+  {
+    'title': 'Flat in anime',
+    'price': 10000,
+    'location': 'Anime',
+    'image': 'assets/room3.png',
+    'verified': true,
+  },
 ];
 
 class RoomCard extends StatelessWidget {
   final Map<String, dynamic> room;
 
-  const RoomCard({required this.room});
+  const RoomCard({super.key, required this.room});
 
   @override
   Widget build(BuildContext context) {

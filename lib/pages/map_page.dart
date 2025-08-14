@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/map.dart';
 
 class MapPage extends StatelessWidget {
-  const MapPage({Key? key}) : super(key: key);
+  const MapPage({super.key});
 
   @override
   Widget build(BuildContext context) {
