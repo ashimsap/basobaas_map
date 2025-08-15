@@ -1,32 +1,81 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-
+import 'package:image_picker/image_picker.dart';
 import 'login/login_page.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Example user data (replace with your real data)
-    final String fullName = "Ashim Sapkota";
-    final String phoneNumber = "+977 9864073201";
-    final bool isPhoneVerified = true;
-    final String email = "ashimsap@gmail.com";
-    final String verificationStatus = "Verified Owner";
-    final int activeListings = 3;
-    final int savedRentals = 5;
+  State<ProfilePage> createState() => _ProfilePageState();
+}
 
+class _ProfilePageState extends State<ProfilePage> {
+  File? _profileImage; // Holds picked image
+  final ImagePicker _picker = ImagePicker();
+
+  // Example user data (replace with your real data)
+  final String fullName = "Ashim Sapkota";
+  final String phoneNumber = "+977 9864073201";
+  final bool isPhoneVerified = true;
+  final String email = "ashimsap@gmail.com";
+  final String verificationStatus = "Verified Owner";
+  final int activeListings = 3;
+  final int savedRentals = 5;
+
+  Future<void> _pickImage() async {
+    final XFile? pickedFile =
+    await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+
+    if (pickedFile != null) {
+      setState(() {
+        _profileImage = File(pickedFile.path);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Profile Picture
-            CircleAvatar(
-              radius: 60,
-              backgroundColor: Colors.grey[300],
-              backgroundImage: NetworkImage('https://scontent.fktm19-1.fna.fbcdn.net/v/t39.30808-6/328896197_580658850616398_4946101284792458931_n.jpg?_nc_cat=102&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=XjdyZwYYOxUQ7kNvwH5tCMg&_nc_oc=AdlybDNwIxrTpKBceiIBETen7W9tQoJleLP7z3tU8Sml-GOsNZ7CHcwx1gR_S3DK6DvisD84tf7TitkgrcW2NkVY&_nc_zt=23&_nc_ht=scontent.fktm19-1.fna&_nc_gid=qILz-1tUovDLIfyme9IRtg&oh=00_AfUnG_TfPumhensO4k4QgZQu6PAmo8c1RiLA744TVnao9A&oe=689D489D'),
+            // Customizable Profile Picture
+            Stack(
+              children: [
+                CircleAvatar(
+                  radius: 60,
+                  backgroundColor: Colors.grey[300],
+                  backgroundImage: _profileImage != null
+                      ? FileImage(_profileImage!)
+                      : const NetworkImage(
+                      'https://scontent.fktm19-1.fna.fbcdn.net/v/t39.30808-6/328896197_580658850616398_4946101284792458931_n.jpg')
+                  as ImageProvider,
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: InkWell(
+                    onTap: _pickImage,
+                    borderRadius: BorderRadius.circular(30),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: const Icon(
+                        Icons.edit,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 
@@ -51,14 +100,16 @@ class ProfilePage extends StatelessWidget {
                 const SizedBox(width: 8),
                 if (isPhoneVerified)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.green[100],
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: const [
-                        Icon(Icons.check_circle, color: Colors.green, size: 16),
+                        Icon(Icons.check_circle,
+                            color: Colors.green, size: 16),
                         SizedBox(width: 4),
                         Text(
                           "Verified",
@@ -103,14 +154,16 @@ class ProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: 32),
 
-            // Info Cards - alternative
+            // Info Cards
             Card(
               margin: const EdgeInsets.symmetric(vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               color: Colors.orange.withOpacity(0.1),
               child: ListTile(
                 leading: const Icon(Icons.home, color: Colors.orange),
-                title: const Text("Active Listings", style: TextStyle(fontWeight: FontWeight.bold)),
+                title: const Text("Active Listings",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: Text("$activeListings Listings"),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
@@ -120,11 +173,13 @@ class ProfilePage extends StatelessWidget {
             ),
             Card(
               margin: const EdgeInsets.symmetric(vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               color: Colors.redAccent.withOpacity(0.1),
               child: ListTile(
                 leading: const Icon(Icons.favorite, color: Colors.redAccent),
-                title: const Text("Saved Rentals", style: TextStyle(fontWeight: FontWeight.bold)),
+                title: const Text("Saved Rentals",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: Text("$savedRentals Rentals"),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
@@ -137,9 +192,7 @@ class ProfilePage extends StatelessWidget {
 
             // Contact Preferences Button
             ElevatedButton.icon(
-              onPressed: () {
-                // Open contact preferences/settings
-              },
+              onPressed: () {},
               icon: const Icon(Icons.settings),
               label: const Text("Contact Preferences"),
               style: ElevatedButton.styleFrom(
@@ -150,9 +203,7 @@ class ProfilePage extends StatelessWidget {
 
             // Edit Profile Button
             OutlinedButton.icon(
-              onPressed: () {
-                // Navigate to Edit Profile page
-              },
+              onPressed: () {},
               icon: const Icon(Icons.edit),
               label: const Text("Edit Profile"),
               style: OutlinedButton.styleFrom(
@@ -164,10 +215,9 @@ class ProfilePage extends StatelessWidget {
             // Logout Button
             ElevatedButton.icon(
               onPressed: () {
-                // Open contact preferences/settings
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => LoginPage()),
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
                 );
               },
               icon: const Icon(Icons.logout),
