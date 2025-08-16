@@ -19,8 +19,10 @@ class _LoginPageState extends State<LoginPage> {
   String email = '';
   String password = '';
 
+
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final size = MediaQuery.of(context).size;
     final theme = Theme.of(context);
     return Scaffold(
@@ -145,6 +147,7 @@ class _LoginPageState extends State<LoginPage> {
                           child: const Text(
                             "Sign In",
                             style: TextStyle(
+                              color: Colors.white,
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1.2,
@@ -187,7 +190,6 @@ class _LoginPageState extends State<LoginPage> {
                       child: OutlinedButton.icon(
                         icon: const FaIcon(
                           FontAwesomeIcons.google,
-                          color: Colors.red,
                         ),
                         label: const Text(
                           "Continue with Google",
@@ -203,39 +205,25 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           backgroundColor: Colors.white,
                         ),
-                        onPressed: () {
-                          // TODO: Implement Google Sign In
+                        onPressed: () async {
+                          final success = await authProvider.signInWithGoogle();
+                          if (success) {
+                            // Navigate to HomePage after successful login
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (context) => MainPage()),
+                            );
+                          } else {
+                            // Show error message
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Google login canceled or failed")),
+                            );
+                          }
                         },
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: OutlinedButton.icon(
-                        icon: const FaIcon(
-                          FontAwesomeIcons.facebook,
-                          color: Colors.blue,
-                        ),
-                        label: const Text(
-                          "Continue with Facebook",
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.grey),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          backgroundColor: Colors.white,
-                        ),
-                        onPressed: () {
-                          // TODO: Implement Facebook Sign In
-                        },
-                      ),
-                    ),
+                    
+
                   ],
                 ),
 

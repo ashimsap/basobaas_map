@@ -44,6 +44,7 @@ dependencies:
   latlong2: any
   location: any
   permission_handler:
+  google_sign_in: ^7.1.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
