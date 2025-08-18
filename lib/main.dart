@@ -4,10 +4,15 @@ import 'package:basobaas_map/provider/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  await Supabase.initialize(
+    url: 'https://cccljhxlvmizkugxgoxi.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjY2xqaHhsdm1pemt1Z3hnb3hpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU0NDE0OTcsImV4cCI6MjA3MTAxNzQ5N30.u_q84qxeVX5kxdVqjFXSpx2azDlXqtaY5A25zix-YLU',
+  );
   runApp(ChangeNotifierProvider(
     create: (_) => AuthProvider(),
     child: const MyApp(),

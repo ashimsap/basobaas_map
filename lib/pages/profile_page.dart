@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:basobaas_map/pages/contact_page.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -18,15 +19,19 @@ class _ProfilePageState extends State<ProfilePage> {
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImage() async {
-    final XFile? pickedFile = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
-    );
-
-    if (pickedFile != null) {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked != null) {
       setState(() {
-        _profileImage = File(pickedFile.path);
+        _profileImage = File(picked.path);
       });
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final success = await authProvider.setAvatar(picked);
+      if (!success) {
+        // handle upload failure
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to upload avatar')),
+        );
+      }
     }
   }
 
@@ -137,6 +142,25 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 32),
 
             // Active Listings & Saved Rentals (example static)
+            GestureDetector(
+              onTap: (){
+                Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ContactPage()),
+                 );
+                },
+              child: Card(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                color: Colors.orange.withAlpha(10),
+                child: ListTile(
+                  leading: const Icon(Icons.contact_mail, color: Colors.green),
+                  title: const Text("contact info", style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text(""),
+                  trailing: const Icon(Icons.chevron_right),
+                ),
+              ),
+            ),
             Card(
               margin: const EdgeInsets.symmetric(vertical: 8),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
