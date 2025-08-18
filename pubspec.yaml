@@ -45,6 +45,8 @@ dependencies:
   location: any
   permission_handler:
   google_sign_in: ^7.1.1
+  animated_text_kit: ^4.2.3
+  http: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

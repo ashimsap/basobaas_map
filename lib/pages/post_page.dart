@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+
+import '../provider/auth_provider.dart';
 
 class PostPage extends StatefulWidget {
   const PostPage({super.key});
@@ -45,13 +48,19 @@ class _PostPageState extends State<PostPage> {
   };
 
   Future<void> _pickImages() async {
-    final List<XFile>? selected = await _picker.pickMultiImage();
-    if (selected != null) {
-      setState(() => _images.addAll(selected));
+    final List<XFile> selected = await _picker.pickMultiImage();
+    setState(() => _images.addAll(selected));
     }
-  }
 
   void _submitPost() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isVerified()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Verify your account through profile page to post a rental.")),
+      );
+      return;
+    }
+
     if (_formKey.currentState!.validate()) {
       // Collect all data here
       final postData = {

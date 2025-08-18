@@ -1,6 +1,6 @@
 import 'package:basobaas_map/pages/base_page.dart';
 import 'package:basobaas_map/pages/login/login_page.dart';
-import 'package:basobaas_map/provider/login_provider.dart';
+import 'package:basobaas_map/provider/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -23,14 +23,15 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
         home: Consumer<AuthProvider>(
-            builder: (context, auth, _) {
-              if (auth.isLoading) {
-                return const Scaffold(
-                    body: Center(child: CircularProgressIndicator()));
-              }
-              return auth.user != null ? const MainPage() : const LoginPage();
+          builder: (context, auth, _) {
+            if (auth.isLoading) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
             }
-            ),
+            return auth.user != null ? const MainPage() : const LoginPage();
+          },
+        )
     );
   }
 }

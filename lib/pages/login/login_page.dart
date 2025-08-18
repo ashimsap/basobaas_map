@@ -1,9 +1,11 @@
+import 'package:basobaas_map/pages/login/forget_password_page.dart';
+import 'package:basobaas_map/pages/login/register_page.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
-import '../../provider/login_provider.dart';
+import '../../provider/auth_provider.dart';
 import '../base_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -110,7 +112,20 @@ class _LoginPageState extends State<LoginPage> {
                         },
                         onSaved: (value) => password = value!,
                       ),
-                      const SizedBox(height: 24),
+                      SizedBox(height: 10,),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          GestureDetector(
+                            onTap:(){ Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => ForgotPasswordPage()),
+                            );},
+                            child: Text("Forgot Password?"),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
 
                       SizedBox(
                         width: double.infinity,
@@ -155,9 +170,28 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                       ),
+                      SizedBox(height: 10,),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text("Not a member?"),
+                          GestureDetector(
+                            onTap: (){ Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => RegisterPage()),
+                                );
+                              },
+                            child: Text(
+                              style: TextStyle(color: Colors.blue),
+                              " Sign Up"
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
+
 
                 // OR divider
                 Row(
@@ -222,7 +256,7 @@ class _LoginPageState extends State<LoginPage> {
                         },
                       ),
                     ),
-                    
+
 
                   ],
                 ),

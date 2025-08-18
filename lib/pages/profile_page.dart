@@ -2,7 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import '../provider/login_provider.dart';
+import '../provider/auth_provider.dart';
+import '../shared_widgets/popup.dart';
 import 'login/login_page.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -81,14 +82,57 @@ class _ProfilePageState extends State<ProfilePage> {
             Text(email, style: TextStyle(fontSize: 16, color: Colors.grey[700])),
             const SizedBox(height: 24),
 
-            // You can keep your phone, verification, listings, etc. below
-            Row(
+            //Verified user?
+            authProvider.isVerified() ? Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.verified_user, color: Colors.blue[700], size: 24),
                 const SizedBox(width: 8),
-                const Text("Verified Owner", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
+                const Text(
+                  "Verified User",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
               ],
+            ) : GestureDetector(
+              onTap:() {
+                  showDialog(
+                    context: context,
+                    builder: (context) => PopupDialog(
+                      title: "Email Verification",
+                      message: "Your email is not verified. Would you like us to send a verification link?",
+                      confirmText: "Send",
+                      onConfirm: () async {
+                        bool sent = await authProvider.sendEmailVerification();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(sent ? "Verification email sent!" : "Failed to send email."),
+                          ),
+                        );
+                      },
+                      cancelText: "Later",
+                    ),
+                  );
+                },
+
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red[700], size: 24),
+                  const SizedBox(width: 8),
+                  const Text(
+                    "Account Not Verified",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 32),
 
@@ -118,11 +162,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: () {
+              onPressed: () async {
+                await authProvider.signOut();
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                  MaterialPageRoute(builder: (context) => LoginPage()),
                 );
+
               },
               icon: const Icon(Icons.logout),
               label: const Text("Logout"),

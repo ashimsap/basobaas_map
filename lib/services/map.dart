@@ -21,7 +21,7 @@ class _MapWidgetState extends State<MapWidget> {
   late final MapController _mapController;
   final TextEditingController _searchController = TextEditingController();
 
-  double _mapRotation = 0.0;
+  final double _mapRotation = 0.0;
   List<CircleMarker> _searchMarkers = [];
 
   @override
