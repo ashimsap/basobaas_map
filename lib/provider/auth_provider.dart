@@ -119,6 +119,13 @@ class AuthProvider extends ChangeNotifier {
       'about': about,
     }, SetOptions(merge: true));
   }
+  //clear contact on signout
+  void _clearContacts() {
+    secondaryEmail = null;
+    phones = [];
+    socialMedia = {};
+    about = null;
+  }
 
 
   // Sign in with email/password
@@ -312,6 +319,7 @@ class AuthProvider extends ChangeNotifier {
   bool isVerified() => user != null && user!.emailVerified;
 
   Future<void> signOut() async {
+    _clearContacts();
     try {
       await _googleSignIn.disconnect();
     } catch (_) {}

@@ -129,7 +129,7 @@ class _ContactPageState extends State<ContactPage> {
     _secondaryEmailController.text = authProvider.secondaryEmail ?? '';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('User Info')),
+      appBar: AppBar(title: const Text('Contact Info'), centerTitle: true,),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

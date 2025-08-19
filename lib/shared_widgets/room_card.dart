@@ -1,27 +1,4 @@
 import 'package:flutter/material.dart';
-final List<Map<String, dynamic>> dummyRooms = [
-  {
-    'title': 'Room in Koteshwor',
-    'price': 6000,
-    'location': 'Koteshwor',
-    'image': 'assets/room1.jpg',
-    'verified': true,
-  },
-  {
-    'title': 'Flat in Pepsicola',
-    'price': 8500,
-    'location': 'Pepsicola',
-    'image': 'assets/room2.jpg',
-    'verified': false,
-  },
-  {
-    'title': 'Flat in anime',
-    'price': 10000,
-    'location': 'Anime',
-    'image': 'assets/room3.png',
-    'verified': true,
-  },
-];
 
 class RoomCard extends StatelessWidget {
   final Map<String, dynamic> room;
@@ -30,6 +7,10 @@ class RoomCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Use the first image from the post images array
+    final images = room['images'] as List<dynamic>? ?? [];
+    final imageUrl = images.isNotEmpty ? images[0] : null;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -39,11 +20,24 @@ class RoomCard extends StatelessWidget {
           // Room image
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: Image.asset(
-              room['image'],
+            child: imageUrl != null
+                ? Image.network(
+              imageUrl,
               height: 160,
               width: double.infinity,
               fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 160,
+                  color: Colors.grey[300],
+                  child: const Center(child: Icon(Icons.image, size: 40)),
+                );
+              },
+            )
+                : Container(
+              height: 160,
+              color: Colors.grey[300],
+              child: const Center(child: Icon(Icons.image, size: 40)),
             ),
           ),
           // Info
@@ -52,11 +46,16 @@ class RoomCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(room['title'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  room['title'] ?? 'No Title',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 4),
-                Text('${room['location']} • Rs ${room['price']} / mo'),
+                Text(
+                  '${room['location'] ?? 'Unknown'} • Rs ${room['price'] ?? '-'} / mo',
+                ),
                 const SizedBox(height: 6),
-                if (room['verified'])
+                if (room['verified'] == true)
                   const Chip(
                     label: Text("Verified Owner", style: TextStyle(color: Colors.white)),
                     backgroundColor: Colors.green,

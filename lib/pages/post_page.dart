@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:geocoding/geocoding.dart' as geo;
 
 import '../provider/auth_provider.dart';
+import '../provider/post_provider.dart';
 
 class PostPage extends StatefulWidget {
   const PostPage({super.key});
@@ -274,8 +275,9 @@ class _PostPageState extends State<PostPage> {
   }
 
   // ---------- Submit (kept same flow; just adds more fields to map) ----------
-  void _submitPost() {
+  void _submitPost() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final postProvider = Provider.of<PostProvider>(context, listen: false);
 
     if (!authProvider.isVerified()) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -303,29 +305,28 @@ class _PostPageState extends State<PostPage> {
       });
 
       final postData = {
-        // original keys you had:
         'title': _titleC.text.trim(),
         'description': _descC.text.trim(),
         'propertyType': _propertyType,
-        'rooms': _rooms, // kept for backward compatibility
-        'beds': 0, // no separate beds control now; keep 0 or compute from rooms
+        'rooms': _rooms,
+        'beds': 0,
         'price': _priceC.text.trim(),
         'deposit': _depositC.text.trim(),
-        'location': _selectedLocation,
-        'amenities': _amenities, // map of booleans as before
+        'location': {
+          'latitude': _selectedLocation.latitude,
+          'longitude': _selectedLocation.longitude,
+        },
+
+        'amenities': _amenities,
         'contact': {
           'name': authProvider.displayName ?? '',
           'email': authProvider.email ?? '',
         },
-        'images': _images,
-
-        // new fields:
         'negotiable': _negotiable,
         'bathroom': _bathroom,
         'parking': _parking,
         'status': _status,
         'availableFrom': _availableFrom?.toIso8601String(),
-        'filledSince': _filledSince?.toIso8601String(),
         'roomSizes': roomSizes,
         'hallSizes': hallSizes,
         'kitchenSizes': kitchenSizes,
@@ -334,19 +335,45 @@ class _PostPageState extends State<PostPage> {
         'typedAddress': _locationC.text.trim(),
       };
 
-      // TODO: Send postData to your backend/Firestore + upload images to Storage
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Post submitted successfully!')),
-      );
+      try {
+        // Upload images + post data
+        await postProvider.postRental(
+          metadata: postData,
+          images: _images, // your list of XFile images
+          userId: authProvider.user!.uid,
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Post submitted successfully!')),
+        );
+
+        // Optionally, reset form or navigate
+        setState(() {
+          _images.clear(); // reset image list
+          _rooms = 0;      // reset other dynamic fields if needed
+          _halls = 0;
+          _kitchens = 0;
+          _amenities.updateAll((key, value) => false);
+          _nearby.updateAll((key, value) => false);
+          _availableFrom = null;
+          _filledSince = null;
+          _formKey.currentState?.reset(); // reset text fields
+        });
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to submit post: $e')),
+        );
+      }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context); // listen true to update contact display
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Post a Rental')),
+      appBar: AppBar(title: const Text('Post a Rental'),centerTitle: true,),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(14),
         child: Form(
@@ -542,7 +569,6 @@ class _PostPageState extends State<PostPage> {
                 children: [
                   _statusChip('Vacant'),
                   _statusChip('ToBeVacant'),
-                  _statusChip('Filled'),
                 ],
               ),
               const SizedBox(height: 8),
@@ -560,20 +586,7 @@ class _PostPageState extends State<PostPage> {
                     ),
                   ],
                 ),
-              if (_status == 'Filled')
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickDate(forVacant: false),
-                        icon: const Icon(Icons.event_busy),
-                        label: Text(_filledSince == null
-                            ? 'Select filled since date'
-                            : 'Since: ${_filledSince!.toLocal().toString().split(' ').first}'),
-                      ),
-                    ),
-                  ],
-                ),
+
               const SizedBox(height: 16),
 
               // Nearby

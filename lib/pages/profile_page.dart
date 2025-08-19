@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'package:basobaas_map/pages/active_listing_page.dart';
 import 'package:basobaas_map/pages/contact_page.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../provider/auth_provider.dart';
+import '../provider/post_provider.dart';
 import '../shared_widgets/popup.dart';
 import 'login/login_page.dart';
 
@@ -161,16 +163,32 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
-            Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              color: Colors.orange.withOpacity(0.1),
-              child: ListTile(
-                leading: const Icon(Icons.home, color: Colors.orange),
-                title: const Text("Active Listings", style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text("3 Listings"),
-                trailing: const Icon(Icons.chevron_right),
-              ),
+            GestureDetector(
+              onTap: (){
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ActiveListingPage()),
+                );
+              },
+              child: Consumer<PostProvider>(
+                  builder: (context, postProvider, _) {
+                    final activeCount = postProvider.activeListings.length;
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      color: Colors.orange.withOpacity(0.1),
+                      child: ListTile(
+                        leading: const Icon(Icons.home, color: Colors.orange),
+                        title: const Text("Active Listings",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle:  Text("$activeCount Listings"),
+                        trailing: const Icon(Icons.chevron_right),
+                      ),
+                    );
+                  }
+               ),
             ),
             Card(
               margin: const EdgeInsets.symmetric(vertical: 8),

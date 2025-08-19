@@ -48,6 +48,8 @@ dependencies:
   permission_handler:
   google_sign_in: ^7.1.1
   animated_text_kit: ^4.2.3
+  photo_view:
+  carousel_slider:
   geocoding:
   http: any
 dev_dependencies:

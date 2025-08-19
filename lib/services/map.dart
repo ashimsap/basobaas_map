@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:location/location.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:provider/provider.dart';
+import 'package:basobaas_map/provider/post_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MapWidget extends StatefulWidget {
   const MapWidget({super.key});
@@ -17,18 +19,19 @@ class _MapWidgetState extends State<MapWidget> {
   LocationData? _currentLocation;
   bool _permissionGranted = false;
 
-  static final LatLng _defaultCenter = LatLng(27.7172, 85.3240); // Kathmandu
+  static final LatLng _defaultCenter = LatLng(27.6756, 85.3459);
   late final MapController _mapController;
-  final TextEditingController _searchController = TextEditingController();
+  List<Marker> _postMarkers = [];
+  String? _selectedPostId; // for marker click selection
 
-  final double _mapRotation = 0.0;
-  List<CircleMarker> _searchMarkers = [];
+  final Map<String, Map<String, dynamic>> _postsById = {};
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
     _initLocation();
+    _loadPostMarkers();
   }
 
   Future<void> _initLocation() async {
@@ -53,50 +56,73 @@ class _MapWidgetState extends State<MapWidget> {
     });
   }
 
+  Future<void> _loadPostMarkers() async {
+    final postProvider = Provider.of<PostProvider>(context, listen: false);
+    final posts = await postProvider.fetchPostLocations();
+
+    final markers = <Marker>[];
+    _postsById.clear();
+
+    for (var post in posts) {
+      final loc = post['location'];
+      if (loc != null && loc['latitude'] != null && loc['longitude'] != null) {
+        Color markerColor;
+
+        // Handle filledDate
+        if (post['filledDate'] != null) {
+          final filledDate = post['filledDate'] is DateTime
+              ? post['filledDate'] as DateTime
+              : (post['filledDate'] as Timestamp).toDate();
+          markerColor = DateTime.now().difference(filledDate).inDays > 5
+              ? Colors.transparent
+              : Colors.red;
+        }
+        // Handle dueDate
+        else if (post['dueDate'] != null) {
+          final dueDate = post['dueDate'] is DateTime
+              ? post['dueDate'] as DateTime
+              : (post['dueDate'] as Timestamp).toDate();
+          markerColor = DateTime.now().isBefore(dueDate) ? Colors.yellow : Colors.green;
+        }
+        // Default vacant
+        else {
+          markerColor = Colors.green;
+        }
+
+        final marker = Marker(
+          key: ValueKey(post['id']),
+          point: LatLng(loc['latitude'], loc['longitude']),
+          width: 40,
+          height: 40,
+          child: GestureDetector(
+            onTap: () {
+              setState(() => _selectedPostId = post['id']);
+              // You can show bottom sheet or popup for the post here
+            },
+            child: Icon(
+              Icons.location_on,
+              color: markerColor,
+              size: 40,
+            ),
+          ),
+        );
+
+        markers.add(marker);
+        _postsById[post['id']] = post;
+      }
+    }
+
+    setState(() => _postMarkers = markers);
+  }
+
   void _goToCurrentLocation() {
     if (_currentLocation == null) return;
     final latLng = LatLng(_currentLocation!.latitude!, _currentLocation!.longitude!);
     _mapController.move(latLng, 16);
   }
 
-  Future<void> _searchLocation(String query) async {
-    if (query.isEmpty) return;
-
-    final uri = Uri.parse(
-      'https://nominatim.openstreetmap.org/search?q=$query&format=json&limit=1',
-    );
-    final response = await http.get(uri, headers: {'User-Agent': 'basobaas-app'});
-
-    if (response.statusCode == 200) {
-      final results = json.decode(response.body);
-      if (results.isNotEmpty) {
-        final lat = double.parse(results[0]['lat']);
-        final lon = double.parse(results[0]['lon']);
-        final searchedLatLng = LatLng(lat, lon);
-
-        _mapController.move(searchedLatLng, 16);
-
-        setState(() {
-          _searchMarkers = [
-            CircleMarker(
-              point: searchedLatLng,
-              radius: 200, // radius in meters
-              color: Colors.blue.withOpacity(0.2),
-              borderStrokeWidth: 2,
-              borderColor: Colors.blue,
-            ),
-          ];
-        });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location not found')),
-        );
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error fetching location')),
-      );
-    }
+  void _resetMapRotation() {
+    _mapController.rotate(0);
   }
 
   @override
@@ -104,6 +130,17 @@ class _MapWidgetState extends State<MapWidget> {
     final center = _currentLocation != null
         ? LatLng(_currentLocation!.latitude!, _currentLocation!.longitude!)
         : _defaultCenter;
+
+    final markers = <Marker>[
+      if (_currentLocation != null)
+        Marker(
+          point: center,
+          width: 40,
+          height: 40,
+          child: const Icon(Icons.my_location, color: Colors.blue, size: 40),
+        ),
+      ..._postMarkers,
+    ];
 
     return Scaffold(
       body: Stack(
@@ -113,62 +150,16 @@ class _MapWidgetState extends State<MapWidget> {
             options: MapOptions(
               initialCenter: center,
               initialZoom: 15,
-              initialRotation: _mapRotation,
-              interactionOptions: InteractionOptions(flags: InteractiveFlag.all),
+              onPositionChanged: (pos, _) {},
             ),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.basobaas',
               ),
-              if (_currentLocation != null)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: center,
-                      width: 40,
-                      height: 40,
-                      child: const Icon(
-                        Icons.my_location,
-                        color: Colors.blue,
-                        size: 40,
-                      ),
-                    ),
-                  ],
-                ),
-              if (_searchMarkers.isNotEmpty)
-                CircleLayer(circles: _searchMarkers),
+              if (markers.isNotEmpty) MarkerLayer(markers: markers),
             ],
           ),
-
-          // Search bar
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Material(
-                elevation: 4,
-                borderRadius: BorderRadius.circular(12),
-                child: TextField(
-                  controller: _searchController,
-                  textInputAction: TextInputAction.search,
-                  decoration: InputDecoration(
-                    hintText: 'Search location',
-                    border: InputBorder.none,
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() => _searchMarkers = []);
-                      },
-                    ),
-                  ),
-                  onSubmitted: _searchLocation,
-                ),
-              ),
-            ),
-          ),
-
           // Current location button
           Positioned(
             bottom: 16,
@@ -178,15 +169,12 @@ class _MapWidgetState extends State<MapWidget> {
               child: const Icon(Icons.my_location),
             ),
           ),
-
           // Compass button
           Positioned(
             bottom: 90,
             right: 16,
             child: FloatingActionButton(
-              onPressed: (){
-                _mapController.rotate(0);
-              },
+              onPressed: _resetMapRotation,
               child: const Icon(Icons.explore),
             ),
           ),
