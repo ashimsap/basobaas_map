@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
-
 import '../../provider/auth_provider.dart';
 import '../base_page.dart';
 
@@ -141,24 +140,28 @@ class _LoginPageState extends State<LoginPage> {
                             if (_formKey.currentState!.validate()) {
                               _formKey.currentState!.save();
 
-                              // Access the provider
                               final authProvider = Provider.of<AuthProvider>(context, listen: false);
                               bool success = await authProvider.signInWithEmail(email, password);
 
-                              if (success) {
-                                // Navigate to HomePage after successful login
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => MainPage()),
-                                );
-                              } else {
-                                // Show error message
+                              if (!success) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text("Login failed. Check credentials.")),
                                 );
+                                return;
                               }
+
+                              // Navigate **after Flutter finishes build** to avoid context issues
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (!mounted) return;
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => MainPage()),
+                                );
+                              });
                             }
-                          },
+                          }
+                          ,
+
                           child: const Text(
                             "Sign In",
                             style: TextStyle(

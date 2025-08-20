@@ -10,10 +10,15 @@ class AuthProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
 
-
   User? user;
   bool isLoading = false;
-  String? avatarUrl; // persistent avatar URL
+  String? avatarUrl;
+
+  // Contact info
+  String? secondaryEmail;
+  List<String> phones = [];
+  Map<String, String> socialMedia = {};
+  String? about;
 
   AuthProvider() {
     user = _auth.currentUser;
@@ -27,23 +32,11 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
-
-
   String? get displayName => user?.displayName;
   String? get email => user?.email;
   String? get photoURL => avatarUrl ?? user?.photoURL;
 
-  // load User contact info
-
-  // inside AuthProvider class
-
-  // Contact / User info section only
-  String? secondaryEmail;
-  List<String> phones = []; // multiple phone numbers
-  Map<String, String> socialMedia = {}; // type -> url
-  String? about;
-
-// Load user contact info from Firestore
+  // --- Contacts management ---
   Future<void> loadContactsFromFirestore() async {
     if (user == null) return;
     final doc = await FirebaseFirestore.instance.collection('users').doc(user!.uid).get();
@@ -57,14 +50,12 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-// Secondary email
   Future<void> setSecondaryEmail(String email) async {
     secondaryEmail = email;
     await _saveContactsToFirestore();
     notifyListeners();
   }
 
-// Phones
   Future<void> addPhone(String phone) async {
     if (!phones.contains(phone)) {
       phones.add(phone);
@@ -89,7 +80,6 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-// Social media
   Future<void> setSocialMedia(String type, String url) async {
     socialMedia[type] = url;
     await _saveContactsToFirestore();
@@ -102,14 +92,18 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-// About / description
   Future<void> setAbout(String text) async {
     about = text;
     await _saveContactsToFirestore();
     notifyListeners();
   }
 
-// Save contacts info to Firestore
+  Future<void> setPhones(List<String> newPhones) async {
+    phones = newPhones;
+    await _saveContactsToFirestore();
+    notifyListeners();
+  }
+
   Future<void> _saveContactsToFirestore() async {
     if (user == null) return;
     await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
@@ -119,7 +113,7 @@ class AuthProvider extends ChangeNotifier {
       'about': about,
     }, SetOptions(merge: true));
   }
-  //clear contact on signout
+
   void _clearContacts() {
     secondaryEmail = null;
     phones = [];
@@ -127,8 +121,7 @@ class AuthProvider extends ChangeNotifier {
     about = null;
   }
 
-
-  // Sign in with email/password
+  // --- Authentication ---
   Future<bool> signInWithEmail(String email, String password) async {
     _setLoading(true);
     try {
@@ -143,7 +136,42 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Reset password
+  Future<bool> signUpWithEmail(String email, String password, String name) async {
+    _setLoading(true);
+    try {
+      final userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final firebaseUser = userCredential.user;
+      if (firebaseUser == null) {
+        _setLoading(false);
+        return false;
+      }
+
+      await firebaseUser.updateDisplayName(name);
+      await firebaseUser.reload();
+      user =firebaseUser;
+      user = _auth.currentUser;
+
+      await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
+        'avatarUrl': null,
+        'secondaryEmail': null,
+        'phones': [],
+        'socialMedia': {},
+        'about': null,
+      }, SetOptions(merge: true));
+
+      _setLoading(false);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint("Register Error: $e");
+      _setLoading(false);
+      return false;
+    }
+  }
+
   Future<bool> resetPassword(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email);
@@ -154,75 +182,39 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Google Sign-in
   Future<bool> signInWithGoogle() async {
     _setLoading(true);
     try {
-      // Initialize once (optional, but safer)
       await _googleSignIn.initialize(
         serverClientId: '935421872654-kjp95hn8tvqu0rt1gedrc3773f6rqq63.apps.googleusercontent.com',
       );
 
-      // Try lightweight auto sign-in (cached)
-      GoogleSignInAccount? googleUser = await _googleSignIn.attemptLightweightAuthentication();
+      GoogleSignInAccount? googleUser = await _googleSignIn.authenticate();
+      if (googleUser == null) {
+        _setLoading(false);
+        return false; // user canceled
+      }
 
-      // Ask user to sign in interactively
-      googleUser ??= await _googleSignIn.authenticate();
+      final googleAuth = await googleUser.authentication;
 
-      // Get OAuth tokens
-      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
-      // Firebase credential
       final credential = GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,
       );
 
-
-
-      // Sign in to Firebase
       final userCredential = await _auth.signInWithCredential(credential);
-      _setLoading(false);
-      return userCredential.user != null;
+      user = userCredential.user;
+      await _loadAvatarFromFirestore();
+      await loadContactsFromFirestore();
 
+      _setLoading(false);
+      notifyListeners();
+      return user != null;
     } catch (e) {
       debugPrint("Google Sign-in error: $e");
     }
     _setLoading(false);
+    notifyListeners();
     return false;
-  }
-
-  // Sign up with email/password
-  Future<bool> signUpWithEmail(String email, String password, String name) async {
-    try {
-      final userCredential =
-      await _auth.createUserWithEmailAndPassword(email: email, password: password);
-
-      await userCredential.user?.updateDisplayName(name);
-      await userCredential.user?.reload();
-      user = _auth.currentUser;
-
-      // Initialize Firestore document for the user
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user!.uid)
-          .set({'avatarUrl': null}, SetOptions(merge: true));
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user!.uid)
-          .set({
-        'avatarUrl': null,
-        'secondaryEmail': null,
-        'phones': [],
-        'socialMedia': {},
-        'about': null,
-      }, SetOptions(merge: true));
-
-
-      notifyListeners();
-      return true;
-    } catch (e) {
-      print("Register Error: $e");
-      return false;
-    }
   }
 
   bool get isEmailVerified => user?.emailVerified ?? false;
@@ -249,12 +241,12 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Upload avatar to Supabase
+  // --- Avatar handling ---
   Future<String?> uploadAvatar(XFile file, String userId) async {
     try {
       final supabaseServiceClient = supabase.SupabaseClient(
         'https://cccljhxlvmizkugxgoxi.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjY2xqaHhsdm1pemt1Z3hnb3hpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTQ0MTQ5NywiZXhwIjoyMDcxMDE3NDk3fQ.7On6QtM6GMg-g2ae2ift6OrJ0BkLy69TMWelaK82JEg', // <-- replace this with your service role key
+        'YOUR_SUPABASE_SERVICE_ROLE_KEY',
       );
 
       final path = 'avatars/$userId.jpg';
@@ -263,53 +255,40 @@ class AuthProvider extends ChangeNotifier {
           .from('user-avatars')
           .upload(path, File(file.path), fileOptions: supabase.FileOptions(upsert: true));
 
-      final publicUrl = supabaseServiceClient.storage
-          .from('user-avatars')
-          .getPublicUrl(path);
-
+      final publicUrl = supabaseServiceClient.storage.from('user-avatars').getPublicUrl(path);
       return publicUrl;
     } catch (e) {
-      print('Avatar upload error: $e');
+      debugPrint('Avatar upload error: $e');
       return null;
     }
   }
 
-
-  // Set avatar: upload + save to Firebase + Firestore
   Future<bool> setAvatar(XFile file) async {
     if (user == null) return false;
 
-    final userId = user!.uid;
-    final url = await uploadAvatar(file, userId);
-
+    final url = await uploadAvatar(file, user!.uid);
     if (url != null) {
       try {
-        // Update Firebase Auth photoURL
         await user!.updatePhotoURL(url);
         await user!.reload();
         user = _auth.currentUser;
         avatarUrl = url;
 
-        // Save in Firestore
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .set({'avatarUrl': url}, SetOptions(merge: true));
+        await FirebaseFirestore.instance.collection('users').doc(user!.uid).set(
+          {'avatarUrl': url}, SetOptions(merge: true),
+        );
 
         notifyListeners();
         return true;
       } catch (e) {
-        print('Failed to set photoURL: $e');
-        return false;
+        debugPrint('Failed to set photoURL: $e');
       }
     }
     return false;
   }
 
-  // Load avatar URL from Firestore
   Future<void> _loadAvatarFromFirestore() async {
     if (user == null) return;
-
     final doc = await FirebaseFirestore.instance.collection('users').doc(user!.uid).get();
     if (doc.exists) {
       avatarUrl = doc.data()?['avatarUrl'];
@@ -324,6 +303,7 @@ class AuthProvider extends ChangeNotifier {
       await _googleSignIn.disconnect();
     } catch (_) {}
     await _auth.signOut();
+    notifyListeners();
   }
 
   void _setLoading(bool value) {

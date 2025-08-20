@@ -1,4 +1,4 @@
-import 'package:basobaas_map/pages/post_detail_page.dart';
+import 'package:basobaas_map/shared_widgets/post_detail_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:basobaas_map/provider/post_provider.dart';
@@ -105,21 +105,43 @@ class _HomePageState extends State<HomePage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               if (firstImage != null)
-                                ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                                  child: Image.network(
-                                    firstImage,
-                                    height: 160,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) =>
-                                        Container(
-                                          height: 160,
-                                          color: Colors.grey[300],
-                                          child: const Center(child: Icon(Icons.image, size: 40)),
-                                        ),
+                                Stack(
+                                  children:[
+                                  ClipRRect(
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                                    child: Image.network(
+                                      firstImage,
+                                      height: 160,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) => Container(
+                                        height: 160,
+                                        color: Colors.grey[300],
+                                        child: const Center(child: Icon(Icons.image, size: 40)),
+                                      ),
+                                    ),
+                                  ),
+
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: CircleAvatar(
+                                  backgroundColor: Colors.black45,
+                                  child: IconButton(
+                                    icon: Icon(
+                                      post['isSaved'] == true ? Icons.favorite : Icons.favorite_border,
+                                      color: post['isSaved'] == true ? Colors.red : Colors.white,
+                                      size: 24,
+                                    ),
+                                    onPressed: () {
+                                      context.read<PostProvider>().toggleSavePost(post['id']);
+                                    },
                                   ),
                                 ),
+                              ),
+                            ],
+                          ),
+                              // post info
                               Padding(
                                 padding: const EdgeInsets.all(12),
                                 child: Column(

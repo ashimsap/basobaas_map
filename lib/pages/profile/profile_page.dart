@@ -1,13 +1,14 @@
 import 'dart:io';
-import 'package:basobaas_map/pages/active_listing_page.dart';
-import 'package:basobaas_map/pages/contact_page.dart';
+import 'package:basobaas_map/pages/profile/active_listing_page.dart';
+import 'package:basobaas_map/pages/profile/contact_page.dart';
+import 'package:basobaas_map/pages/profile/saved_rental_page.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import '../provider/auth_provider.dart';
-import '../provider/post_provider.dart';
-import '../shared_widgets/popup.dart';
-import 'login/login_page.dart';
+import '../../provider/auth_provider.dart';
+import '../../provider/post_provider.dart';
+import '../../shared_widgets/popup.dart';
+import '../login/login_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -190,17 +191,35 @@ class _ProfilePageState extends State<ProfilePage> {
                   }
                ),
             ),
-            Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              color: Colors.redAccent.withOpacity(0.1),
-              child: ListTile(
-                leading: const Icon(Icons.favorite, color: Colors.redAccent),
-                title: const Text("Saved Rentals", style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text("5 Rentals"),
-                trailing: const Icon(Icons.chevron_right),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => SavedRentalsPage()),
+                );
+              },
+              child: Consumer<PostProvider>(
+                builder: (context, postProvider, _) {
+                  final savedCount = postProvider.savedRentals.length; // count of starred posts
+
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    color: Colors.yellow.withOpacity(0.1),
+                    child: ListTile(
+                      leading: const Icon(Icons.favorite, color: Colors.red),
+                      title: const Text("Saved Rentals",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text("$savedCount Rentals"), // shows actual number
+                      trailing: const Icon(Icons.chevron_right),
+                    ),
+                  );
+                },
               ),
             ),
+
 
             const SizedBox(height: 24),
             ElevatedButton.icon(

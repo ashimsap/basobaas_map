@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:basobaas_map/provider/post_provider.dart';
 import 'package:basobaas_map/provider/auth_provider.dart';
-import '../shared_widgets/post_card.dart';
+import '../../shared_widgets/post_card.dart';
 
 class ActiveListingPage extends StatefulWidget {
   const ActiveListingPage({super.key});

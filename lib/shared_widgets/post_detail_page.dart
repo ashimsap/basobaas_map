@@ -4,7 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 
-import '../shared_widgets/fullscreen_image_viewer.dart';
+import 'fullscreen_image_viewer.dart';
 
 class PostDetailPage extends StatelessWidget {
   final Map<String, dynamic> post;

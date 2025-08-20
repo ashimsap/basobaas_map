@@ -26,6 +26,10 @@ class PostProvider with ChangeNotifier {
   List<Map<String, dynamic>> _allPosts = [];
   List<Map<String, dynamic>> get allPosts => _allPosts;
 
+  List<Map<String, dynamic>> _savedRentals = [];
+  List<Map<String, dynamic>> get savedRentals => _savedRentals;
+
+
   StreamSubscription? _postSub;
 
   /// ---------- POST RENTAL ----------
@@ -40,6 +44,7 @@ class PostProvider with ChangeNotifier {
     List<String> uploadedImageUrls = [];
 
     try {
+      // Upload images to Supabase
       for (var img in images) {
         final fileBytes = await img.readAsBytes();
         final fileName =
@@ -49,6 +54,7 @@ class PostProvider with ChangeNotifier {
         uploadedImageUrls.add(url);
       }
 
+      // Add post metadata to Firestore
       final docRef = await _firestore.collection('rentals').add({
         ...metadata,
         'images': uploadedImageUrls,
@@ -64,23 +70,22 @@ class PostProvider with ChangeNotifier {
           'filledDate': null,
           'dueDate': metadata['dueDate'],
         });
-        if (color != null) {
-          _markers.add(
-            Marker(
-              key: ValueKey(docRef.id),
-              point: LatLng(loc['latitude'], loc['longitude']),
-              width: 40,
-              height: 40,
-              child: Icon(Icons.location_on, color: color, size: 40),
-            ),
-          );
-          notifyListeners();
-        }
+        _markers.add(
+          Marker(
+            key: ValueKey(docRef.id),
+            point: LatLng(loc['latitude'], loc['longitude']),
+            width: 40,
+            height: 40,
+            child: Icon(Icons.location_on, color: color, size: 40),
+          ),
+        );
+        notifyListeners();
       }
 
       _loading = false;
       notifyListeners();
     } catch (e) {
+      // Remove uploaded images if post fails
       for (var url in uploadedImageUrls) {
         final path = url.split('/').last;
         try {
@@ -93,7 +98,36 @@ class PostProvider with ChangeNotifier {
     }
   }
 
-  /// Refresh all posts for HomePage
+  /// ---------- UPDATE POST ----------
+  Future<void> updateRental({
+    required String postId,
+    required Map<String, dynamic> metadata,
+    List<String>? newImages, // URLs of newly uploaded images
+  }) async {
+    try {
+      // Merge new images if any
+      if (newImages != null && newImages.isNotEmpty) {
+        final currentImages = List<String>.from(metadata['images'] ?? []);
+        metadata['images'] = [...currentImages, ...newImages];
+      }
+
+      await _firestore.collection('rentals').doc(postId).update(metadata);
+
+      // Update local active listings
+      final index = _activeListings.indexWhere((p) => p['id'] == postId);
+      if (index != -1) {
+        _activeListings[index] = {
+          ..._activeListings[index],
+          ...metadata,
+        };
+        notifyListeners();
+      }
+    } catch (e) {
+      throw Exception('Failed to update post: $e');
+    }
+  }
+
+  /// ---------- FETCH ALL POSTS ----------
   Future<void> fetchAllPosts() async {
     final snapshot = await _firestore.collection('rentals').get();
     _allPosts = snapshot.docs.map((doc) {
@@ -101,6 +135,38 @@ class PostProvider with ChangeNotifier {
       data['id'] = doc.id;
       return data;
     }).toList();
+
+    _savedRentals = _allPosts.where((p) => p['isSaved'] == true).toList();
+
+    notifyListeners();
+  }
+
+  /// Toggle the saved/starred status of a post
+  Future<void> toggleSavePost(String postId) async {
+    // Find the post in allPosts
+    final index = _allPosts.indexWhere((p) => p['id'] == postId);
+    if (index == -1) return; // Post not found
+
+    final post = _allPosts[index];
+    final currentlySaved = post['isSaved'] == true;
+
+    // Update Firestore
+    await _firestore.collection('rentals').doc(postId).update({
+      'isSaved': !currentlySaved,
+    });
+
+    // Update local allPosts
+    post['isSaved'] = !currentlySaved;
+
+    // Update savedRentals list
+    if (post['isSaved'] == true) {
+      // Add if not already in savedRentals
+      if (!_savedRentals.any((p) => p['id'] == postId)) _savedRentals.add(post);
+    } else {
+      // Remove if present
+      _savedRentals.removeWhere((p) => p['id'] == postId);
+    }
+
     notifyListeners();
   }
 
@@ -144,8 +210,7 @@ class PostProvider with ChangeNotifier {
     notifyListeners();
   }
 
-
-  /// ---------- TOGGLE FILLED ----------
+  /// ---------- TOGGLE FILLED STATUS ----------
   Future<void> toggleFilled(String postId, bool filled) async {
     final updateData = {
       'filledDate': filled ? FieldValue.serverTimestamp() : null,
@@ -158,10 +223,11 @@ class PostProvider with ChangeNotifier {
     final index = _activeListings.indexWhere((p) => p['id'] == postId);
     if (index != -1) {
       _activeListings[index]['filledDate'] = filled ? Timestamp.now() : null;
+      _activeListings[index]['status'] = filled ? 'rented' : 'vacant';
       notifyListeners();
     }
 
-    // Update the marker color immediately
+    // Update marker immediately
     final markerIndex = _markers.indexWhere((m) => m.key == ValueKey(postId));
     if (markerIndex != -1) {
       final postData = _activeListings.firstWhere((p) => p['id'] == postId);
@@ -183,7 +249,6 @@ class PostProvider with ChangeNotifier {
     }
   }
 
-
   /// ---------- FETCH POST LOCATIONS ----------
   Future<List<Map<String, dynamic>>> fetchPostLocations() async {
     final snapshot = await _firestore.collection('rentals').get();
@@ -194,58 +259,42 @@ class PostProvider with ChangeNotifier {
     }).toList();
   }
 
-  /// ---------- MARKER REFRESH LOGIC ----------
+  /// ---------- REFRESH MARKERS ----------
   Future<void> refreshMarkers() async {
-    final posts = await fetchPostLocations(); // fetch latest post data
-
-    final updatedMarkers = <Marker>[];
-
-    for (var post in posts) {
+    final posts = await fetchPostLocations();
+    _markers = posts
+        .where((p) => p['location'] != null)
+        .map((post) {
       final loc = post['location'];
-      if (loc != null && loc['latitude'] != null && loc['longitude'] != null) {
-        updatedMarkers.add(
-          Marker(
-            key: ValueKey(post['id']),
-            point: LatLng(loc['latitude'], loc['longitude']),
-            width: 40,
-            height: 40,
-            child: Icon(
-              Icons.location_on,
-              color: _getMarkerColor(post),
-              size: 40,
-            ),
-          ),
-        );
-      }
-    }
-
-    _markers = updatedMarkers;
+      return Marker(
+        key: ValueKey(post['id']),
+        point: LatLng(loc['latitude'], loc['longitude']),
+        width: 40,
+        height: 40,
+        child: Icon(Icons.location_on, color: _getMarkerColor(post), size: 40),
+      );
+    })
+        .toList();
     notifyListeners();
   }
-
 
   /// ---------- REAL-TIME MARKERS ----------
   void _listenToPosts() {
     _postSub = _firestore.collection('rentals').snapshots().listen((snapshot) {
-      final markers = <Marker>[];
-      for (var doc in snapshot.docs) {
+      final markers = snapshot.docs
+          .where((doc) => doc.data()['location'] != null)
+          .map((doc) {
         final data = doc.data();
         final loc = data['location'];
-        if (loc != null && loc['latitude'] != null && loc['longitude'] != null) {
-          final color = _getMarkerColor(data);
-          if (color != null) {
-            markers.add(
-              Marker(
-                key: ValueKey(doc.id),
-                point: LatLng(loc['latitude'], loc['longitude']),
-                width: 40,
-                height: 40,
-                child: Icon(Icons.location_on, color: color, size: 40),
-              ),
-            );
-          }
-        }
-      }
+        return Marker(
+          key: ValueKey(doc.id),
+          point: LatLng(loc['latitude'], loc['longitude']),
+          width: 40,
+          height: 40,
+          child: Icon(Icons.location_on, color: _getMarkerColor(data), size: 40),
+        );
+      })
+          .toList();
       _markers = markers;
       notifyListeners();
     });
@@ -265,7 +314,6 @@ class PostProvider with ChangeNotifier {
       return Colors.green;
     }
   }
-
 
   @override
   void dispose() {
