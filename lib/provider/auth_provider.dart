@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -126,7 +127,8 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(true);
     try {
       await _auth.signInWithEmailAndPassword(email: email, password: password);
-      await _loadAvatarFromFirestore();
+      user = _auth.currentUser;
+      unawaited(_loadAvatarFromFirestore());
       _setLoading(false);
       return true;
     } on FirebaseAuthException catch (e) {
@@ -151,8 +153,7 @@ class AuthProvider extends ChangeNotifier {
 
       await firebaseUser.updateDisplayName(name);
       await firebaseUser.reload();
-      user =firebaseUser;
-      user = _auth.currentUser;
+      try{
 
       await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
         'avatarUrl': null,
@@ -161,6 +162,12 @@ class AuthProvider extends ChangeNotifier {
         'socialMedia': {},
         'about': null,
       }, SetOptions(merge: true));
+      } catch (e) {
+        debugPrint("Firestore init erroe(ignored): $e");
+      }
+      //sign out after account creation for manual login
+      await _auth.signOut();
+      user = null;
 
       _setLoading(false);
       notifyListeners();

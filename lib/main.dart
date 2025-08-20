@@ -43,7 +43,7 @@ class MyApp extends StatelessWidget {
                 body: Center(child: CircularProgressIndicator()),
               );
             }
-            return auth.user != null ? const MainPage() : const LoginPage();
+            return auth.user == null ? const LoginPage() : const MainPage();
           },
         )
     );
