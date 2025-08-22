@@ -198,6 +198,17 @@ class PostProvider with ChangeNotifier {
       }).toList();
     }
 
+    // -------------------s
+    // Type filter
+    // -------------------
+    if (_typeFilter != null && _typeFilter!.isNotEmpty) {
+      posts = posts.where((p) {
+        final type = (p['propertyType'] ?? "").toString().toLowerCase();
+        return type == _typeFilter!.toLowerCase();
+      }).toList();
+    }
+
+
     // -------------------
     // Parking filter
     // -------------------
@@ -264,8 +275,7 @@ class PostProvider with ChangeNotifier {
     notifyListeners();
   }
   bool get isFilterActive {
-    return (_typeFilter != null) ||
-        (_minPrice != null) ||
+    return (_minPrice != null) ||
         (_maxPrice != null) ||
         (_startDate != null) ||
         (_endDate != null) ||
