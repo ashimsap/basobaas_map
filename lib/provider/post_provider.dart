@@ -5,15 +5,19 @@ import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 
 class PostProvider with ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final SupabaseClient supabaseClient;
 
   PostProvider(this.supabaseClient) {
-    _listenToPosts(); // start real-time marker listener
+    _listenToPosts(); // Start real-time marker listener
   }
 
+  // =========================
+  // Loading & Core Data
+  // =========================
   bool _loading = false;
   bool get loading => _loading;
 
@@ -29,10 +33,253 @@ class PostProvider with ChangeNotifier {
   List<Map<String, dynamic>> _savedRentals = [];
   List<Map<String, dynamic>> get savedRentals => _savedRentals;
 
-
   StreamSubscription? _postSub;
 
-  /// ---------- POST RENTAL ----------
+  // =========================
+  // Search & Filters
+  // =========================
+  String _searchQuery = "";
+  String get searchQuery => _searchQuery;
+  //getters
+  String? get typeFilter => _typeFilter;
+  double? get minPrice => _minPrice;
+  double? get maxPrice => _maxPrice;
+
+  DateTime? get startDate => _startDate;
+  DateTime? get endDate => _endDate;
+  String? get locationKeyword => _locationKeyword;
+
+
+  String? _typeFilter; // Room, Flat, Hostel, or null (off)
+
+  double? _minPrice;
+  double? _maxPrice;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  String? _locationKeyword;
+
+  Set<String> _amenitiesFilter = {};
+  Set<String> get amenitiesFilter => _amenitiesFilter;
+
+  String? _parkingFilter; // "Car", "Bike", "Both", null = off
+  String? get parkingFilter => _parkingFilter;
+
+  Set<String> _nearbyFilter = {};
+  Set<String> get nearbyFilter => _nearbyFilter;
+
+// Setter methods
+  void setAmenitiesFilter(Set<String> amenities) {
+    _amenitiesFilter = amenities;
+    notifyListeners();
+  }
+
+  void setParkingFilter(String? parking) {
+    _parkingFilter = parking;
+    notifyListeners();
+  }
+
+  void setNearbyFilter(Set<String> nearby) {
+    _nearbyFilter = nearby;
+    notifyListeners();
+  }
+
+  /// Sorting
+  bool? isPriceAsc; // true = low->high, false = high->low, null = off
+  bool sortByRecent = false;
+
+  /// Update search query
+  void updateSearch(String query) {
+    _searchQuery = query;
+    notifyListeners();
+  }
+
+  void setTypeFilter(String? type) {
+    _typeFilter = type;
+    notifyListeners();
+  }
+
+
+
+  void setPriceRange(double? min, double? max) {
+    _minPrice = min;
+    _maxPrice = max;
+    notifyListeners();
+  }
+
+  void setDateRange(DateTime? start, DateTime? end) {
+    _startDate = start;
+    _endDate = end;
+    notifyListeners();
+  }
+
+  void setLocationKeyword(String? keyword) {
+    _locationKeyword = keyword;
+    notifyListeners();
+  }
+
+  void togglePriceSort() {
+    if (isPriceAsc == null) {
+      isPriceAsc = true;
+    } else if (isPriceAsc == true) {
+      isPriceAsc = false;
+    } else {
+      isPriceAsc = null;
+    }
+    notifyListeners();
+  }
+
+  void toggleRecentSort() {
+    sortByRecent = !sortByRecent;
+    notifyListeners();
+  }
+
+  List<Map<String, dynamic>> get filteredPosts {
+    var posts = [..._allPosts];
+
+    // -------------------
+    // Search filter
+    // -------------------
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.trim().toLowerCase();
+      posts = posts.where((p) {
+        final title = (p['title'] ?? "").toString().toLowerCase();
+        final desc = (p['description'] ?? "").toString().toLowerCase();
+        final addr = (p['address'] ?? "").toString().toLowerCase();
+
+        final titleScore = ratio(title, query);
+        final descScore = ratio(desc, query);
+        final addrScore = ratio(addr, query);
+
+        return titleScore > 60 || descScore > 60 || addrScore > 60;
+      }).toList();
+    }
+
+    // -------------------
+    // Price filter
+    // -------------------
+    if (_minPrice != null) posts = posts.where((p) => (p['price'] ?? 0) >= _minPrice!).toList();
+    if (_maxPrice != null) posts = posts.where((p) => (p['price'] ?? 0) <= _maxPrice!).toList();
+
+    // -------------------
+    // Post date filter
+    // -------------------
+    if (startDate != null || endDate != null) {
+      posts = posts.where((p) {
+        final createdAt = p['createdAt'];
+        DateTime? postDate;
+        if (createdAt is Timestamp) postDate = createdAt.toDate();
+        else if (createdAt is DateTime) postDate = createdAt;
+        if (postDate == null) return false;
+        if (startDate != null && postDate.isBefore(startDate!)) return false;
+        if (endDate != null && postDate.isAfter(endDate!)) return false;
+        return true;
+      }).toList();
+    }
+
+    // -------------------
+    // Location filter
+    // -------------------
+    if (_locationKeyword != null && _locationKeyword!.isNotEmpty) {
+      posts = posts.where((p) {
+        final addr = (p['address'] ?? "").toString().toLowerCase();
+        final landmark = (p['landmark'] ?? "").toString().toLowerCase();
+        return addr.contains(_locationKeyword!.toLowerCase()) ||
+            landmark.contains(_locationKeyword!.toLowerCase());
+      }).toList();
+    }
+
+    // -------------------
+    // Amenities filter
+    // -------------------
+    if (_amenitiesFilter.isNotEmpty) {
+      posts = posts.where((p) {
+        final postAmenities = List<String>.from(p['amenities'] ?? []);
+        return _amenitiesFilter.every((amenity) => postAmenities.contains(amenity));
+      }).toList();
+    }
+
+    // -------------------
+    // Parking filter
+    // -------------------
+    if (_parkingFilter != null) {
+      posts = posts.where((p) {
+        final parking = (p['parking'] ?? "").toString();
+        if (_parkingFilter == "Both") {
+          return parking == "Bike & Car"; // exact match
+        } else {
+          return parking == _parkingFilter;
+        }
+      }).toList();
+    }
+
+    // -------------------
+    // Nearby places filter
+    // -------------------
+    if (_nearbyFilter.isNotEmpty) {
+      posts = posts.where((p) {
+        final postNearby = List<String>.from(p['nearby'] ?? []);
+        return _nearbyFilter.every((place) => postNearby.contains(place));
+      }).toList();
+    }
+
+    // -------------------
+    // Sort by recent
+    // -------------------
+    if (sortByRecent) {
+      posts.sort((a, b) {
+        final aDate = a['createdAt'] is DateTime ? a['createdAt'] : (a['createdAt'] as Timestamp).toDate();
+        final bDate = b['createdAt'] is DateTime ? b['createdAt'] : (b['createdAt'] as Timestamp).toDate();
+        return bDate.compareTo(aDate);
+      });
+    }
+
+    // -------------------
+    // Sort by price
+    // -------------------
+    if (isPriceAsc != null) {
+      posts.sort((a, b) {
+        final aPrice = a['price'] ?? 0;
+        final bPrice = b['price'] ?? 0;
+        return isPriceAsc! ? aPrice.compareTo(bPrice) : bPrice.compareTo(aPrice);
+      });
+    }
+
+    return posts;
+  }
+  ///--------reset filters----------
+  void resetFilters() {
+    _searchQuery = "";
+    _typeFilter = null;
+    _minPrice = null;
+    _maxPrice = null;
+    _startDate = null;
+    _endDate = null;
+    _locationKeyword = null;
+    _amenitiesFilter.clear();
+    _parkingFilter = null;
+    _nearbyFilter.clear();
+    isPriceAsc = null;
+    sortByRecent = false;
+
+    notifyListeners();
+  }
+  bool get isFilterActive {
+    return (_typeFilter != null) ||
+        (_minPrice != null) ||
+        (_maxPrice != null) ||
+        (_startDate != null) ||
+        (_endDate != null) ||
+        (_locationKeyword != null && _locationKeyword!.isNotEmpty) ||
+        (_amenitiesFilter.isNotEmpty) ||
+        (_parkingFilter != null) ||
+        (_nearbyFilter.isNotEmpty);
+  }
+
+
+
+  // =========================
+  // Posting & Updating Rentals
+  // =========================
   Future<void> postRental({
     required Map<String, dynamic> metadata,
     required List<XFile> images,
@@ -44,48 +291,45 @@ class PostProvider with ChangeNotifier {
     List<String> uploadedImageUrls = [];
 
     try {
-      // Upload images to Supabase
+      if (metadata['price'] is String) {
+        metadata['price'] = double.tryParse(metadata['price']) ?? 0;
+      }
       for (var img in images) {
         final fileBytes = await img.readAsBytes();
         final fileName =
             'rentals/$userId/${DateTime.now().millisecondsSinceEpoch}_${img.name}';
-        await supabaseClient.storage.from('rental-images').uploadBinary(fileName, fileBytes);
-        final url = supabaseClient.storage.from('rental-images').getPublicUrl(fileName);
+        await supabaseClient.storage
+            .from('rental-images')
+            .uploadBinary(fileName, fileBytes);
+        final url =
+        supabaseClient.storage.from('rental-images').getPublicUrl(fileName);
         uploadedImageUrls.add(url);
       }
 
-      // Add post metadata to Firestore
       final docRef = await _firestore.collection('rentals').add({
         ...metadata,
         'images': uploadedImageUrls,
         'userId': userId,
         'createdAt': FieldValue.serverTimestamp(),
-        'filledDate': null,
+        'filledSince': metadata['filledSince'] ?? null,
       });
 
-      // Add marker immediately
       final loc = metadata['location'];
       if (loc != null && loc['latitude'] != null && loc['longitude'] != null) {
-        final color = _getMarkerColor({
-          'filledDate': null,
-          'dueDate': metadata['dueDate'],
-        });
-        _markers.add(
-          Marker(
-            key: ValueKey(docRef.id),
-            point: LatLng(loc['latitude'], loc['longitude']),
-            width: 40,
-            height: 40,
-            child: Icon(Icons.location_on, color: color, size: 40),
-          ),
-        );
+        final color = _getMarkerColor(metadata);
+        _markers.add(Marker(
+          key: ValueKey(docRef.id),
+          point: LatLng(loc['latitude'], loc['longitude']),
+          width: 40,
+          height: 40,
+          child: Icon(Icons.location_on, color: color, size: 40),
+        ));
         notifyListeners();
       }
 
       _loading = false;
       notifyListeners();
     } catch (e) {
-      // Remove uploaded images if post fails
       for (var url in uploadedImageUrls) {
         final path = url.split('/').last;
         try {
@@ -98,28 +342,42 @@ class PostProvider with ChangeNotifier {
     }
   }
 
-  /// ---------- UPDATE POST ----------
   Future<void> updateRental({
     required String postId,
     required Map<String, dynamic> metadata,
-    List<String>? newImages, // URLs of newly uploaded images
+    List<String>? newImages,
   }) async {
     try {
-      // Merge new images if any
       if (newImages != null && newImages.isNotEmpty) {
         final currentImages = List<String>.from(metadata['images'] ?? []);
         metadata['images'] = [...currentImages, ...newImages];
       }
+      if (metadata['price'] is String) {
+        metadata['price'] = double.tryParse(metadata['price']) ?? 0;
+      }
 
       await _firestore.collection('rentals').doc(postId).update(metadata);
 
-      // Update local active listings
       final index = _activeListings.indexWhere((p) => p['id'] == postId);
       if (index != -1) {
-        _activeListings[index] = {
-          ..._activeListings[index],
-          ...metadata,
-        };
+        _activeListings[index] = {..._activeListings[index], ...metadata};
+
+        final loc = _activeListings[index]['location'];
+        if (loc != null && loc['latitude'] != null && loc['longitude'] != null) {
+          final markerIndex =
+          _markers.indexWhere((m) => (m.key as ValueKey).value == postId);
+          final color = _getMarkerColor(_activeListings[index]);
+          if (markerIndex != -1) {
+            _markers[markerIndex] = Marker(
+              key: ValueKey(postId),
+              point: LatLng(loc['latitude'], loc['longitude']),
+              width: 40,
+              height: 40,
+              child: Icon(Icons.location_on, color: color, size: 40),
+            );
+          }
+        }
+
         notifyListeners();
       }
     } catch (e) {
@@ -127,8 +385,96 @@ class PostProvider with ChangeNotifier {
     }
   }
 
-  /// ---------- FETCH ALL POSTS ----------
-  Future<void> fetchAllPosts() async {
+  Future<void> toggleStatus(String postId, String newStatus) async {
+    final index = _activeListings.indexWhere((p) => p['id'] == postId);
+    if (index == -1) return;
+
+    Map<String, dynamic> updateData = {'status': newStatus};
+    if (newStatus == 'Filled') {
+      updateData['filledSince'] = DateTime.now().toIso8601String();
+    } else if (newStatus == 'Vacant') {
+      updateData['filledSince'] = null;
+    }
+
+    await _firestore.collection('rentals').doc(postId).update(updateData);
+    _activeListings[index] = {..._activeListings[index], ...updateData};
+
+    final loc = _activeListings[index]['location'];
+    if (loc != null) {
+      final markerIndex =
+      _markers.indexWhere((m) => (m.key as ValueKey).value == postId);
+      final color = _getMarkerColor(_activeListings[index]);
+      if (markerIndex != -1) {
+        _markers[markerIndex] = Marker(
+          key: ValueKey(postId),
+          point: LatLng(loc['latitude'], loc['longitude']),
+          width: 40,
+          height: 40,
+          child: Icon(Icons.location_on, color: color, size: 40),
+        );
+      }
+    }
+
+    notifyListeners();
+  }
+
+  Future<void> refreshStatuses() async {
+    final now = DateTime.now();
+    final snapshot = await _firestore
+        .collection('rentals')
+        .where('status', isEqualTo: 'ToBeVacant')
+        .get();
+
+    for (var doc in snapshot.docs) {
+      final data = doc.data();
+      if (data['availableFrom'] != null) {
+        final availableFrom = DateTime.parse(data['availableFrom']);
+        if (availableFrom.isBefore(now)) {
+          await _firestore.collection('rentals').doc(doc.id).update({
+            'status': 'Vacant',
+            'availableFrom': null,
+          });
+
+          final index = _activeListings.indexWhere((p) => p['id'] == doc.id);
+          if (index != -1) {
+            _activeListings[index]['status'] = 'Vacant';
+            _activeListings[index]['availableFrom'] = null;
+
+            final markerIndex =
+            _markers.indexWhere((m) => (m.key as ValueKey).value == doc.id);
+            if (markerIndex != -1) {
+              final loc = _activeListings[index]['location'];
+              _markers[markerIndex] = Marker(
+                key: ValueKey(doc.id),
+                point: LatLng(loc['latitude'], loc['longitude']),
+                width: 40,
+                height: 40,
+                child: Icon(Icons.location_on, color: Colors.green, size: 40),
+              );
+            }
+          }
+        }
+      }
+    }
+    notifyListeners();
+  }
+
+  Color _getMarkerColor(Map<String, dynamic> rental) {
+    final status = rental['status'];
+    switch (status) {
+      case 'ToBeVacant':
+        return Colors.orange;
+      case 'Filled':
+        return Colors.red;
+      default:
+        return Colors.green;
+    }
+  }
+
+  // =========================
+  // Fetching Posts & Saved Rentals
+  // =========================
+  Future<void> fetchAllPosts(String userId) async {
     final snapshot = await _firestore.collection('rentals').get();
     _allPosts = snapshot.docs.map((doc) {
       final data = doc.data();
@@ -136,42 +482,46 @@ class PostProvider with ChangeNotifier {
       return data;
     }).toList();
 
-    _savedRentals = _allPosts.where((p) => p['isSaved'] == true).toList();
-
+    await fetchSavedRentals(userId);
     notifyListeners();
   }
 
-  /// Toggle the saved/starred status of a post
-  Future<void> toggleSavePost(String postId) async {
-    // Find the post in allPosts
-    final index = _allPosts.indexWhere((p) => p['id'] == postId);
-    if (index == -1) return; // Post not found
+  Future<void> toggleSavePost(String postId, String userId) async {
+    final savedRef = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('savedRentals')
+        .doc(postId);
 
-    final post = _allPosts[index];
-    final currentlySaved = post['isSaved'] == true;
-
-    // Update Firestore
-    await _firestore.collection('rentals').doc(postId).update({
-      'isSaved': !currentlySaved,
-    });
-
-    // Update local allPosts
-    post['isSaved'] = !currentlySaved;
-
-    // Update savedRentals list
-    if (post['isSaved'] == true) {
-      // Add if not already in savedRentals
-      if (!_savedRentals.any((p) => p['id'] == postId)) _savedRentals.add(post);
+    final savedDoc = await savedRef.get();
+    if (savedDoc.exists) {
+      await savedRef.delete();
     } else {
-      // Remove if present
-      _savedRentals.removeWhere((p) => p['id'] == postId);
+      await savedRef.set({'savedAt': FieldValue.serverTimestamp()});
     }
 
+    final index = _allPosts.indexWhere((p) => p['id'] == postId);
+    if (index != -1) _allPosts[index]['isSaved'] = !(_allPosts[index]['isSaved'] ?? false);
+
+    await fetchSavedRentals(userId);
     notifyListeners();
   }
 
+  Future<void> fetchSavedRentals(String userId) async {
+    final snapshot = await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('savedRentals')
+        .get();
+    final savedIds = snapshot.docs.map((d) => d.id).toSet();
 
-  /// ---------- FETCH ACTIVE LISTINGS ----------
+    for (var post in _allPosts) {
+      post['isSaved'] = savedIds.contains(post['id']);
+    }
+
+    _savedRentals = _allPosts.where((p) => p['isSaved'] == true).toList();
+  }
+
   Future<void> fetchActiveListings(String userId) async {
     final snapshot = await _firestore
         .collection('rentals')
@@ -190,18 +540,18 @@ class PostProvider with ChangeNotifier {
       }
 
       DateTime? filledDate;
-      if (data['filledDate'] != null) {
-        filledDate = data['filledDate'] is Timestamp
-            ? (data['filledDate'] as Timestamp).toDate()
-            : data['filledDate'] as DateTime;
+      if (data['filledSince'] != null) {
+        filledDate = data['filledSince'] is Timestamp
+            ? (data['filledSince'] as Timestamp).toDate()
+            : DateTime.parse(data['filledSince']);
       }
 
       if (filledDate != null) {
-        data['status'] = 'rented';
+        data['status'] = 'Filled';
       } else if (dueDate != null && DateTime.now().isBefore(dueDate)) {
-        data['status'] = 'toBeAvailable';
+        data['status'] = 'ToBeVacant';
       } else {
-        data['status'] = 'vacant';
+        data['status'] = 'Vacant';
       }
 
       return data;
@@ -210,56 +560,9 @@ class PostProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// ---------- TOGGLE FILLED STATUS ----------
-  Future<void> toggleFilled(String postId, bool filled) async {
-    final updateData = {
-      'filledDate': filled ? FieldValue.serverTimestamp() : null,
-    };
-
-    // Update Firestore
-    await _firestore.collection('rentals').doc(postId).update(updateData);
-
-    // Update local activeListings
-    final index = _activeListings.indexWhere((p) => p['id'] == postId);
-    if (index != -1) {
-      _activeListings[index]['filledDate'] = filled ? Timestamp.now() : null;
-      _activeListings[index]['status'] = filled ? 'rented' : 'vacant';
-      notifyListeners();
-    }
-
-    // Update marker immediately
-    final markerIndex = _markers.indexWhere((m) => m.key == ValueKey(postId));
-    if (markerIndex != -1) {
-      final postData = _activeListings.firstWhere((p) => p['id'] == postId);
-      final loc = postData['location'];
-      if (loc != null && loc['latitude'] != null && loc['longitude'] != null) {
-        _markers[markerIndex] = Marker(
-          key: ValueKey(postId),
-          point: LatLng(loc['latitude'], loc['longitude']),
-          width: 40,
-          height: 40,
-          child: Icon(
-            Icons.location_on,
-            color: _getMarkerColor(postData),
-            size: 40,
-          ),
-        );
-        notifyListeners();
-      }
-    }
-  }
-
-  /// ---------- FETCH POST LOCATIONS ----------
-  Future<List<Map<String, dynamic>>> fetchPostLocations() async {
-    final snapshot = await _firestore.collection('rentals').get();
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
-  }
-
-  /// ---------- REFRESH MARKERS ----------
+  // =========================
+  // Markers & Real-Time Listener
+  // =========================
   Future<void> refreshMarkers() async {
     final posts = await fetchPostLocations();
     _markers = posts
@@ -273,12 +576,10 @@ class PostProvider with ChangeNotifier {
         height: 40,
         child: Icon(Icons.location_on, color: _getMarkerColor(post), size: 40),
       );
-    })
-        .toList();
+    }).toList();
     notifyListeners();
   }
 
-  /// ---------- REAL-TIME MARKERS ----------
   void _listenToPosts() {
     _postSub = _firestore.collection('rentals').snapshots().listen((snapshot) {
       final markers = snapshot.docs
@@ -293,26 +594,19 @@ class PostProvider with ChangeNotifier {
           height: 40,
           child: Icon(Icons.location_on, color: _getMarkerColor(data), size: 40),
         );
-      })
-          .toList();
+      }).toList();
       _markers = markers;
       notifyListeners();
     });
   }
 
-  /// ---------- MARKER COLOR LOGIC ----------
-  Color _getMarkerColor(Map<String, dynamic> post) {
-    final filledDate = post['filledDate'] as Timestamp?;
-    final dueDate = post['dueDate'] as Timestamp?;
-
-    if (filledDate != null) {
-      if (DateTime.now().difference(filledDate.toDate()).inDays > 5) return Colors.grey;
-      return Colors.red;
-    } else if (dueDate != null && DateTime.now().isBefore(dueDate.toDate())) {
-      return Colors.yellow;
-    } else {
-      return Colors.green;
-    }
+  Future<List<Map<String, dynamic>>> fetchPostLocations() async {
+    final snapshot = await _firestore.collection('rentals').get();
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      data['id'] = doc.id;
+      return data;
+    }).toList();
   }
 
   @override

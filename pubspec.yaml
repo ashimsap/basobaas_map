@@ -42,6 +42,7 @@ dependencies:
   lottie: ^3.3.0
   image_picker:
   font_awesome_flutter: any
+  fuzzywuzzy:
   flutter_map: any
   latlong2: any
   location: any

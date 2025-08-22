@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -16,6 +17,8 @@ class PostDetailPage extends StatelessWidget {
       post['location']['latitude'],
       post['location']['longitude'],
     );
+    final currentIndex = ValueNotifier<int>(0);
+
 
     Color statusColor() {
       switch (post['status']) {
@@ -57,7 +60,7 @@ class PostDetailPage extends StatelessWidget {
     }
 
     return Scaffold(
-      extendBodyBehindAppBar: true, // images go behind app bar
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -67,38 +70,73 @@ class PostDetailPage extends StatelessWidget {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(14,0,14,14),
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Images Carousel
               if (post['images'] != null && post['images'].isNotEmpty)
-                CarouselSlider(
-                  items: List<Widget>.from(post['images'].map<Widget>((img) {
-                    final index = post['images'].indexOf(img);
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => FullScreenGallery(images: post['images'], initialIndex: index),
+                Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    CarouselSlider.builder(
+                      itemCount: post['images'].length,
+                      itemBuilder: (context, index, realIndex) {
+                        final img = post['images'][index];
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FullScreenGallery(images: post['images'], initialIndex: index),
+                              ),
+                            );
+                          },
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: img.toString().startsWith('http')
+                                ? Image.network(img, fit: BoxFit.cover, width: double.infinity)
+                                : Image.file(File(img), fit: BoxFit.cover, width: double.infinity),
                           ),
                         );
                       },
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: img.toString().startsWith('http')
-                            ? Image.network(img, fit: BoxFit.cover, width: double.infinity)
-                            : Image.file(File(img), fit: BoxFit.cover, width: double.infinity),
+                      options: CarouselOptions(
+                        height: 220,
+                        viewportFraction: 1.0,
+                        enableInfiniteScroll: false,
+                        onPageChanged: (index, reason) {
+                          currentIndex.value = index;
+                        },
                       ),
-                    );
-                  })),
-                  options: CarouselOptions(
-                    height: 220,
-                    viewportFraction: 1.0,
-                    enableInfiniteScroll: false,
-                  ),
+                    ),
+
+                    // Dots Indicator
+                    if (post['images'].length > 1)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: ValueListenableBuilder(
+                          valueListenable: currentIndex,
+                          builder: (context, int index, _) {
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: List.generate(post['images'].length, (i) {
+                                return Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: i == index ? Colors.white : Colors.white54,
+                                  ),
+                                );
+                              }),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
                 ),
+
 
               const SizedBox(height: 12),
 
@@ -129,24 +167,72 @@ class PostDetailPage extends StatelessWidget {
               ),
               const SizedBox(height: 12),
 
+              // Date
+              if (post['availableFrom'] != null) ...[
+                const Text('Available From:', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(post['availableFrom'].toString()),
+                const SizedBox(height: 12),
+              ],
+              if (post['filledSince'] != null) ...[
+                Text(
+                  "Filled Since: ${(post['filledSince'] is Timestamp)
+                      ? (post['filledSince'] as Timestamp).toDate().toLocal().toString().split(' ').first
+                      : post['filledSince'].toString()}",
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 6),
+              ],
+
               // Room/Hall/Kitchen sizes
               _sizesList('Rooms', post['roomSizes'] ?? []),
               _sizesList('Halls', post['hallSizes'] ?? []),
               _sizesList('Kitchens', post['kitchenSizes'] ?? []),
 
               // Bathroom & Parking
-              Text('Bathroom: ${post['bathroom'] ?? '-'}'),
-              Text('Parking: ${post['parking'] ?? '-'}'),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: 'Bathroom: ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    TextSpan(text: post['bathroom'] ?? '-'),
+                  ],
+                ),
+              ),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: 'Parking: ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    TextSpan(text: post['parking'] ?? '-'),
+                  ],
+                ),
+              ),
               const SizedBox(height: 12),
 
               // Amenities
               if (post['amenities'] != null) ...[
                 const Text('Amenities:', style: TextStyle(fontWeight: FontWeight.bold)),
-                _chipList(Map<String, bool>.from(post['amenities'])),
+                Builder(
+                  builder: (_) {
+                    final a = post['amenities'];
+                    if (a is Map<String, dynamic>) {
+                      // New posts: map
+                      return _chipList(a.map((k, v) => MapEntry(k, v == true)));
+                    } else if (a is List) {
+                      // Old posts: list of strings
+                      return _chipList(Map<String, bool>.fromIterable(
+                        List<String>.from(a),
+                        key: (v) => v.toString(),
+                        value: (_) => true,
+                      ));
+                    } else {
+                      return const SizedBox.shrink();
+                    }
+                  },
+                ),
                 const SizedBox(height: 12),
               ],
 
-              // Nearby
+
+              // Nearby (still list -> convert to map temporarily)
               if (post['nearby'] != null) ...[
                 const Text('Nearby Areas:', style: TextStyle(fontWeight: FontWeight.bold)),
                 _chipList(Map<String, bool>.fromIterable(
@@ -172,7 +258,7 @@ class PostDetailPage extends StatelessWidget {
                 const SizedBox(height: 12),
               ],
 
-              // Location (static map)
+              // Address
               if ((post['typedAddress'] ?? '').isNotEmpty) ...[
                 const Text('Address:', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
@@ -187,7 +273,7 @@ class PostDetailPage extends StatelessWidget {
                   options: MapOptions(
                     initialCenter: loc,
                     initialZoom: 15,
-                    interactionOptions:  InteractionOptions(flags: InteractiveFlag.none),
+                    interactionOptions: InteractionOptions(flags: InteractiveFlag.none),
                   ),
                   children: [
                     TileLayer(

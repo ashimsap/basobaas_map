@@ -44,29 +44,26 @@ class _ActiveListingPageState extends State<ActiveListingPage> {
             return const Center(child: Text("No active listings yet."));
           }
 
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: postProvider.activeListings.length,
-            itemBuilder: (context, index) {
-              final post = postProvider.activeListings[index];
+          return RefreshIndicator(
+            onRefresh:_fetchActiveListings ,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: postProvider.activeListings.length,
+              itemBuilder: (context, index) {
+                final post = postProvider.activeListings[index];
 
-              return PostCard(
-                post: post,
-                onToggle: () async {
-                  final filled = post['filledDate'] == null;
-                  await postProvider.toggleFilled(post['id'], filled);
-
-                  // refresh listings immediately
-                  await _fetchActiveListings();
-                },
-              );
-            },
+                return PostCard(
+                  post: post,
+                  onToggle: () async {
+                    final filled = post['filledDate'] == null;
+                    // refresh listings immediately
+                    await _fetchActiveListings();
+                  },
+                );
+              },
+            ),
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _fetchActiveListings,
-        child: const Icon(Icons.refresh),
       ),
     );
   }

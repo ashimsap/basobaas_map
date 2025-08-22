@@ -1,3 +1,5 @@
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:basobaas_map/provider/post_provider.dart';
@@ -67,7 +69,8 @@ class SavedRentalsPage extends StatelessWidget {
                                     size: 24,
                                   ),
                                   onPressed: () {
-                                    context.read<PostProvider>().toggleSavePost(post['id']);
+                                    final userId = FirebaseAuth.instance.currentUser!.uid;
+                                    context.read<PostProvider>().toggleSavePost(post['id'], userId);
                                   },
                                 ),
                               ),

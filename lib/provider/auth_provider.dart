@@ -196,17 +196,15 @@ class AuthProvider extends ChangeNotifier {
         serverClientId: '935421872654-kjp95hn8tvqu0rt1gedrc3773f6rqq63.apps.googleusercontent.com',
       );
 
-      GoogleSignInAccount? googleUser = await _googleSignIn.authenticate();
+      GoogleSignInAccount? googleUser = await _googleSignIn.attemptLightweightAuthentication();
+      googleUser ??= await _googleSignIn.authenticate();
       if (googleUser == null) {
         _setLoading(false);
         return false; // user canceled
       }
 
       final googleAuth = await googleUser.authentication;
-
-      final credential = GoogleAuthProvider.credential(
-        idToken: googleAuth.idToken,
-      );
+      final credential = GoogleAuthProvider.credential(idToken: googleAuth.idToken);
 
       final userCredential = await _auth.signInWithCredential(credential);
       user = userCredential.user;
@@ -224,6 +222,8 @@ class AuthProvider extends ChangeNotifier {
     return false;
   }
 
+
+  // Email verification
   bool get isEmailVerified => user?.emailVerified ?? false;
 
   Future<bool> sendEmailVerification() async {
@@ -253,7 +253,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       final supabaseServiceClient = supabase.SupabaseClient(
         'https://cccljhxlvmizkugxgoxi.supabase.co',
-        'YOUR_SUPABASE_SERVICE_ROLE_KEY',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjY2xqaHhsdm1pemt1Z3hnb3hpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTQ0MTQ5NywiZXhwIjoyMDcxMDE3NDk3fQ.7On6QtM6GMg-g2ae2ift6OrJ0BkLy69TMWelaK82JEg',
       );
 
       final path = 'avatars/$userId.jpg';
