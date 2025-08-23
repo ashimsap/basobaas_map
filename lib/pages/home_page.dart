@@ -164,7 +164,8 @@ class _HomePageState extends State<HomePage> {
                       const Text("Price"),
                       if (postProvider.isPriceAsc != null)
                         Icon(
-                          postProvider.isPriceAsc! ? Icons.arrow_upward : Icons.arrow_downward,
+                          postProvider.isPriceAsc! ? Icons.arrow_upward : Icons
+                              .arrow_downward,
                           size: 16,
                         ),
                     ],
@@ -187,7 +188,8 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(width: 8),
 
                 // Type filters: mutually exclusive
-                ...["Room", "Flat", "Apartment", "Shared"].map((type) {
+                ...["Room", "Flat", "Shared Room", "Studio", "House"].map((
+                    type) {
                   final isSelected = postProvider.typeFilter == type;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
@@ -209,8 +211,6 @@ class _HomePageState extends State<HomePage> {
   }
 
 
-
-
   Widget _buildPostCard(BuildContext context, Map<String, dynamic> post) {
     final images = post['images'] as List<dynamic>? ?? [];
     final firstImage = images.isNotEmpty ? images[0] : null;
@@ -230,35 +230,44 @@ class _HomePageState extends State<HomePage> {
           children: [
             if (firstImage != null)
               Stack(
+                key: ValueKey(post['id']), // <-- Unique key per post
                 children: [
                   ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(12)),
                     child: Image.network(
                       firstImage,
                       height: 160,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        height: 160,
-                        color: Colors.grey[300],
-                        child: const Center(child: Icon(Icons.image, size: 40)),
-                      ),
+                      errorBuilder: (context, error, stackTrace) =>
+                          Container(
+                            height: 160,
+                            color: Colors.grey[300],
+                            child: const Center(child: Icon(Icons.image,
+                                size: 40)),
+                          ),
                     ),
                   ),
                   Positioned(
                     top: 8,
                     right: 8,
                     child: CircleAvatar(
+                      key: ValueKey('fav_${post['id']}'),
+                      // <-- Unique key for favorite icon
                       backgroundColor: Colors.black45,
                       child: IconButton(
                         icon: Icon(
-                          post['isSaved'] == true ? Icons.favorite : Icons.favorite_border,
-                          color: post['isSaved'] == true ? Colors.red : Colors.white,
+                          post['isSaved'] == true ? Icons.favorite : Icons
+                              .favorite_border,
+                          color: post['isSaved'] == true ? Colors.red : Colors
+                              .white,
                           size: 24,
                         ),
                         onPressed: () {
                           final userId = FirebaseAuth.instance.currentUser!.uid;
-                          context.read<PostProvider>().toggleSavePost(post['id'], userId);
+                          context.read<PostProvider>().toggleSavePost(
+                              post['id'], userId);
                         },
                       ),
                     ),
@@ -271,7 +280,8 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(post['title'] ?? "No Title",
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   Text(post['description'] ?? ""),
                   const SizedBox(height: 6),

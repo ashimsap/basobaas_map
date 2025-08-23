@@ -27,6 +27,7 @@ class _PostPageState extends State<PostPage> {
   final TextEditingController _depositC = TextEditingController();
   final TextEditingController _locationC = TextEditingController();
   final TextEditingController _notesC = TextEditingController();
+  final TextEditingController _floorC = TextEditingController();
 
   // Property info
   String _propertyType = 'Room';
@@ -41,7 +42,6 @@ class _PostPageState extends State<PostPage> {
 
   String _status = 'Vacant';
   DateTime? _availableFrom;
-  DateTime? _filledSince;
 
   final Map<String, bool> _nearby = {
     'Hospital': false,
@@ -53,17 +53,21 @@ class _PostPageState extends State<PostPage> {
     'Gym': false,
     'Park': false,
     'Temple': false,
+    'Swimming Pool': false,
+    'Mall': false,
   };
 
   final Map<String, bool> _amenities = {
     'WiFi': false,
     'Water': false,
+    'Hot Water': false,
     'Electricity': false,
-    'Parking': false,
     'Furnished': false,
     'AC/Heating': false,
     'Laundry': false,
     'Pet Friendly': false,
+    'Garbage': false,
+    'Balcony': false,
   };
 
   final List<XFile> _images = [];
@@ -78,9 +82,9 @@ class _PostPageState extends State<PostPage> {
     _titleC.dispose();
     _descC.dispose();
     _priceC.dispose();
-    _depositC.dispose();
     _locationC.dispose();
     _notesC.dispose();
+    _floorC.dispose();
     for (final c in [..._roomW, ..._roomL, ..._hallW, ..._hallL, ..._kitchenW, ..._kitchenL]) {
       c.dispose();
     }
@@ -88,7 +92,35 @@ class _PostPageState extends State<PostPage> {
     super.dispose();
   }
 
-  // ----------------- UI Helpers -----------------
+  // Clear all text fields and reset state
+  void _clearForm() {
+    _titleC.clear();
+    _descC.clear();
+    _priceC.clear();
+    _depositC.clear();
+    _locationC.clear();
+    _notesC.clear();
+    _floorC.clear();
+    for (final c in [..._roomW, ..._roomL, ..._hallW, ..._hallL, ..._kitchenW, ..._kitchenL]) {
+      c.clear();
+    }
+
+    setState(() {
+      _images.clear();
+      _propertyType = 'Room';
+      _rooms = _halls = _kitchens = 0;
+      _bathroom = 'Private';
+      _parking = 'None';
+      _negotiable = false;
+      _status = 'Vacant';
+      _availableFrom = null;
+      _amenities.updateAll((key, value) => false);
+      _nearby.updateAll((key, value) => false);
+      _selectedLocation = LatLng(27.7172, 85.3240);
+    });
+  }
+
+
   InputDecoration _input(String label, {Widget? prefix, Widget? suffix}) {
     return InputDecoration(
       labelText: label,
@@ -114,10 +146,7 @@ class _PostPageState extends State<PostPage> {
     return Row(
       children: [
         Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600))),
-        IconButton(
-          onPressed: count > 0 ? onRemove : null,
-          icon: const Icon(Icons.remove_circle_outline),
-        ),
+        IconButton(onPressed: count > 0 ? onRemove : null, icon: const Icon(Icons.remove_circle_outline)),
         Text('$count', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         IconButton(onPressed: onAdd, icon: const Icon(Icons.add_circle_outline)),
       ],
@@ -125,8 +154,12 @@ class _PostPageState extends State<PostPage> {
   }
 
   void _ensureListLength(List<TextEditingController> list, int newLen) {
-    while (list.length < newLen) list.add(TextEditingController());
-    while (list.length > newLen) list.removeLast().dispose();
+    while (list.length < newLen) {
+      list.add(TextEditingController());
+    }
+    while (list.length > newLen) {
+      list.removeLast().dispose();
+    }
   }
 
   Widget _sizesGrid({
@@ -177,12 +210,9 @@ class _PostPageState extends State<PostPage> {
   Future<void> _pickImages() async {
     final picked = await _picker.pickMultiImage(imageQuality: 85);
     if (picked.isEmpty) return;
-
     final remaining = 5 - _images.length;
     final toAdd = picked.take(remaining).toList();
-
     setState(() => _images.addAll(toAdd));
-
     if (picked.length > remaining) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Only $remaining more image(s) allowed (max 5).')),
@@ -192,9 +222,9 @@ class _PostPageState extends State<PostPage> {
 
   Color _statusColor() {
     switch (_status) {
-      case 'ToBeVacant':
+      case 'To Be Vacant':
         return Colors.orange;
-      case 'Filled':
+      case 'Rented':
         return Colors.red;
       default:
         return Colors.green;
@@ -203,7 +233,7 @@ class _PostPageState extends State<PostPage> {
 
   Future<void> _pickDate({required bool forVacant}) async {
     final now = DateTime.now();
-    final initial = forVacant ? (_availableFrom ?? now) : (_filledSince ?? now);
+    final initial = _availableFrom ?? now;
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
@@ -213,7 +243,6 @@ class _PostPageState extends State<PostPage> {
     if (picked != null) {
       setState(() {
         if (forVacant) _availableFrom = picked;
-        else _filledSince = picked;
       });
     }
   }
@@ -234,7 +263,6 @@ class _PostPageState extends State<PostPage> {
     });
   }
 
-  // ----------------- Submit -----------------
   void _submitPost() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final postProvider = Provider.of<PostProvider>(context, listen: false);
@@ -249,13 +277,9 @@ class _PostPageState extends State<PostPage> {
     if (_formKey.currentState!.validate()) {
       final selectedAmenities = _amenities.entries.where((e) => e.value).map((e) => e.key).toList();
       final selectedNearby = _nearby.entries.where((e) => e.value).map((e) => e.key).toList();
-
       final roomSizes = List.generate(_rooms, (i) => {'width': _roomW[i].text.trim(), 'length': _roomL[i].text.trim()});
       final hallSizes = List.generate(_halls, (i) => {'width': _hallW[i].text.trim(), 'length': _hallL[i].text.trim()});
       final kitchenSizes = List.generate(_kitchens, (i) => {'width': _kitchenW[i].text.trim(), 'length': _kitchenL[i].text.trim()});
-
-      String parkingValue = _parking == 'Both' ? 'Bike & Car' : _parking;
-
       final postData = {
         'title': _titleC.text.trim(),
         'description': _descC.text.trim(),
@@ -263,18 +287,17 @@ class _PostPageState extends State<PostPage> {
         'rooms': _rooms,
         'halls': _halls,
         'kitchens': _kitchens,
-        'price': _priceC.text.trim(),
-        'deposit': _depositC.text.trim(),
+        'price': int.tryParse(_priceC.text.trim()) ?? 0,
+        'floor': _floorC.text.trim(),
         'location': {'latitude': _selectedLocation.latitude, 'longitude': _selectedLocation.longitude},
         'amenities': selectedAmenities,
         'nearby': selectedNearby,
         'contact': {'name': authProvider.displayName ?? '', 'email': authProvider.email ?? ''},
         'negotiable': _negotiable,
         'bathroom': _bathroom,
-        'parking': parkingValue,
+        'parking': _parking,
         'status': _status,
         'availableFrom': _availableFrom?.toIso8601String(),
-        'filledSince': _filledSince?.toIso8601String(),
         'roomSizes': roomSizes,
         'hallSizes': hallSizes,
         'kitchenSizes': kitchenSizes,
@@ -284,25 +307,14 @@ class _PostPageState extends State<PostPage> {
 
       try {
         await postProvider.postRental(metadata: postData, images: _images, userId: authProvider.user!.uid);
-
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Post submitted successfully!')));
-
-        setState(() {
-          _images.clear();
-          _rooms = _halls = _kitchens = 0;
-          _amenities.updateAll((key, value) => false);
-          _nearby.updateAll((key, value) => false);
-          _availableFrom = null;
-          _filledSince = null;
-          _formKey.currentState?.reset();
-        });
+        _clearForm();
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to submit post: $e')));
       }
     }
   }
 
-  // ----------------- Chips -----------------
   Widget _parkingChip(String value) => ChoiceChip(
     label: Text(value),
     selected: _parking == value,
@@ -310,14 +322,8 @@ class _PostPageState extends State<PostPage> {
   );
 
   Widget _statusChip(String value) {
-    final label = switch (value) {
-      'Vacant' => 'Vacant',
-      'ToBeVacant' => 'To be vacant (from)',
-      'Filled' => 'Filled (since)',
-      _ => value,
-    };
     return ChoiceChip(
-      label: Text(label),
+      label: Text(value),
       selected: _status == value,
       onSelected: (_) => setState(() => _status = value),
     );
@@ -351,28 +357,209 @@ class _PostPageState extends State<PostPage> {
               ),
               const SizedBox(height: 12),
               // Property Type
-              DropdownButtonFormField<String>(
-                value: _propertyType,
-                isExpanded: true,
-                items: const ['Room', 'Flat', 'Apartment', 'Shared Room']
-                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                    .toList(),
-                onChanged: (v) => setState(() => _propertyType = v!),
-                decoration: _input('Property Type', prefix: const Icon(Icons.home_work)),
-              ),
+            // Property Type dropdown
+            DropdownButtonFormField<String>(
+              value: _propertyType,
+              isExpanded: true,
+              items: const ['Room', 'Flat', 'Shared Room', 'Studio', 'House']
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
+              onChanged: (v) {
+                setState(() {
+                  _propertyType = v!;
+                  _rooms = _halls = _kitchens = 0;
+                  _ensureListLength(_roomW, _rooms);
+                  _ensureListLength(_roomL, _rooms);
+                  _ensureListLength(_hallW, _halls);
+                  _ensureListLength(_hallL, _halls);
+                  _ensureListLength(_kitchenW, _kitchens);
+                  _ensureListLength(_kitchenL, _kitchens);
+                });
+              },
+              decoration: _input('Property Type', prefix: const Icon(Icons.home_work)),
+            ),
+            const SizedBox(height: 16),
+
+// Dynamic counters based on property type
+              // Dynamic counters based on property type
+              if (_propertyType == 'Room') ...[
+                _counterRow(
+                  label: 'Rooms',
+                  count: _rooms,
+                  onAdd: () {
+                    if (_rooms < 5) {
+                      setState(() {
+                      _rooms++;
+                      _ensureListLength(_roomW, _rooms);
+                      _ensureListLength(_roomL, _rooms);
+                    });
+                    }
+                  },
+                  onRemove: () {
+                    if (_rooms > 0) {
+                      setState(() {
+                      _rooms--;
+                      _ensureListLength(_roomW, _rooms);
+                      _ensureListLength(_roomL, _rooms);
+                    });
+                    }
+                  },
+                ),
+                _sizesGrid(label: 'Room', count: _rooms, wList: _roomW, lList: _roomL),
+              ] else if (_propertyType == 'Flat' || _propertyType == 'Shared Room') ...[
+                _counterRow(
+                  label: 'Rooms',
+                  count: _rooms,
+                  onAdd: () {
+                    if (_rooms < 3) {
+                      setState(() {
+                      _rooms++;
+                      _ensureListLength(_roomW, _rooms);
+                      _ensureListLength(_roomL, _rooms);
+                    });
+                    }
+                  },
+                  onRemove: () {
+                    if (_rooms > 0) {
+                      setState(() {
+                      _rooms--;
+                      _ensureListLength(_roomW, _rooms);
+                      _ensureListLength(_roomL, _rooms);
+                    });
+                    }
+                  },
+                ),
+                _sizesGrid(label: 'Room', count: _rooms, wList: _roomW, lList: _roomL),
+                _counterRow(
+                  label: 'Halls',
+                  count: _halls,
+                  onAdd: () {
+                    if (_halls < 2) {
+                      setState(() {
+                      _halls++;
+                      _ensureListLength(_hallW, _halls);
+                      _ensureListLength(_hallL, _halls);
+                    });
+                    }
+                  },
+                  onRemove: () {
+                    if (_halls > 0) {
+                      setState(() {
+                      _halls--;
+                      _ensureListLength(_hallW, _halls);
+                      _ensureListLength(_hallL, _halls);
+                    });
+                    }
+                  },
+                ),
+                _sizesGrid(label: 'Hall', count: _halls, wList: _hallW, lList: _hallL),
+                _counterRow(
+                  label: 'Kitchens',
+                  count: _kitchens,
+                  onAdd: () {
+                    if (_kitchens < 1) {
+                      setState(() {
+                      _kitchens++;
+                      _ensureListLength(_kitchenW, _kitchens);
+                      _ensureListLength(_kitchenL, _kitchens);
+                    });
+                    }
+                  },
+                  onRemove: () {
+                    if (_kitchens > 0) {
+                      setState(() {
+                      _kitchens--;
+                      _ensureListLength(_kitchenW, _kitchens);
+                      _ensureListLength(_kitchenL, _kitchens);
+                    });
+                    }
+                  },
+                ),
+                _sizesGrid(label: 'Kitchen', count: _kitchens, wList: _kitchenW, lList: _kitchenL),
+              ] else if (_propertyType == 'Studio') ...[
+                Builder(builder: (_) {
+                  // Ensure the lists have length 1
+                  _ensureListLength(_roomW, 1);
+                  _ensureListLength(_roomL, 1);
+                  return _sizesGrid(label: 'Studio', count: 1, wList: _roomW, lList: _roomL);
+                }),
+              ] else if (_propertyType == 'House') ...[
+                _counterRow(
+                  label: 'Rooms',
+                  count: _rooms,
+                  onAdd: () {
+                    if (_rooms < 9) {
+                      setState(() {
+                      _rooms++;
+                      _ensureListLength(_roomW, _rooms);
+                      _ensureListLength(_roomL, _rooms);
+                    });
+                    }
+                  },
+                  onRemove: () {
+                    if (_rooms > 0) {
+                      setState(() {
+                      _rooms--;
+                      _ensureListLength(_roomW, _rooms);
+                      _ensureListLength(_roomL, _rooms);
+                    });
+                    }
+                  },
+                ),
+                _sizesGrid(label: 'Room', count: _rooms, wList: _roomW, lList: _roomL),
+                _counterRow(
+                  label: 'Halls',
+                  count: _halls,
+                  onAdd: () {
+                    if (_halls < 9) {
+                      setState(() {
+                      _halls++;
+                      _ensureListLength(_hallW, _halls);
+                      _ensureListLength(_hallL, _halls);
+                    });
+                    }
+                  },
+                  onRemove: () {
+                    if (_halls > 0) {
+                      setState(() {
+                      _halls--;
+                      _ensureListLength(_hallW, _halls);
+                      _ensureListLength(_hallL, _halls);
+                    });
+                    }
+                  },
+                ),
+                _sizesGrid(label: 'Hall', count: _halls, wList: _hallW, lList: _hallL),
+                _counterRow(
+                  label: 'Kitchens',
+                  count: _kitchens,
+                  onAdd: () {
+                    if (_kitchens < 9) {
+                      setState(() {
+                      _kitchens++;
+                      _ensureListLength(_kitchenW, _kitchens);
+                      _ensureListLength(_kitchenL, _kitchens);
+                    });
+                    }
+                  },
+                  onRemove: () {
+                    if (_kitchens > 0) {
+                      setState(() {
+                      _kitchens--;
+                      _ensureListLength(_kitchenW, _kitchens);
+                      _ensureListLength(_kitchenL, _kitchens);
+                    });
+                    }
+                  },
+                ),
+                _sizesGrid(label: 'Kitchen', count: _kitchens, wList: _kitchenW, lList: _kitchenL),
+              ],
+              // Floor (optional)
+              TextFormField(controller:_floorC, decoration: _input('Floor (optional)')),
+
               const SizedBox(height: 16),
 
-              // Rooms/Halls/Kitchens
-              _counterRow(label: 'Rooms', count: _rooms, onAdd: () { setState(() { _rooms++; _ensureListLength(_roomW, _rooms); _ensureListLength(_roomL, _rooms); }); }, onRemove: () { setState(() { if (_rooms>0)_rooms--; _ensureListLength(_roomW,_rooms); _ensureListLength(_roomL,_rooms); }); }),
-              _sizesGrid(label: 'Room', count: _rooms, wList: _roomW, lList: _roomL),
-              const SizedBox(height: 8),
-              _counterRow(label: 'Halls', count: _halls, onAdd: () { setState(() { _halls++; _ensureListLength(_hallW,_halls); _ensureListLength(_hallL,_halls); }); }, onRemove: () { setState(() { if (_halls>0)_halls--; _ensureListLength(_hallW,_halls); _ensureListLength(_hallL,_halls); }); }),
-              _sizesGrid(label: 'Hall', count: _halls, wList: _hallW, lList: _hallL),
-              const SizedBox(height: 8),
-              _counterRow(label: 'Kitchens', count: _kitchens, onAdd: () { setState(() { _kitchens++; _ensureListLength(_kitchenW,_kitchens); _ensureListLength(_kitchenL,_kitchens); }); }, onRemove: () { setState(() { if (_kitchens>0)_kitchens--; _ensureListLength(_kitchenW,_kitchens); _ensureListLength(_kitchenL,_kitchens); }); }),
-              _sizesGrid(label: 'Kitchen', count: _kitchens, wList: _kitchenW, lList: _kitchenL),
 
-              const SizedBox(height: 16),
               // Bathroom
               const Text('Bathroom', style: TextStyle(fontWeight: FontWeight.w600)),
               Row(
@@ -382,39 +569,36 @@ class _PostPageState extends State<PostPage> {
                 ],
               ),
               const SizedBox(height: 8),
-              // Parking
-              const Text('Parking', style: TextStyle(fontWeight: FontWeight.w600)),
-              Wrap(spacing: 10, children: ['None','Bike','Car','Both'].map(_parkingChip).toList()),
-              const SizedBox(height: 16),
+
               // Price & Deposit
-              Row(
-                children: [
-                  Expanded(child: TextFormField(controller: _priceC, keyboardType: TextInputType.number, decoration: _input('Price (NPR)', prefix: const Text('  रु', style: TextStyle(fontSize: 30))), validator: (v)=>(v==null||v.trim().isEmpty)?'Enter price':null)),
-                  const SizedBox(width:12),
-                  Expanded(child: TextFormField(controller:_depositC, keyboardType: TextInputType.number, decoration: _input('Deposit (optional)', prefix: const Icon(Icons.savings)))),
-                ],
-              ),
+              const Text('Price', style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height:6),
+              TextFormField(controller: _priceC, keyboardType: TextInputType.number, decoration: _input('Price (NPR)', prefix: const Text('  रु', style: TextStyle(fontSize: 30))), validator: (v)=>(v==null||v.trim().isEmpty)?'Enter price':null),
+              //Negotiable
               CheckboxListTile(value:_negotiable,onChanged:(v)=>setState(()=>_negotiable=v??false),title:const Text('Price negotiable'),controlAffinity: ListTileControlAffinity.leading,contentPadding: EdgeInsets.zero),
+
               const SizedBox(height: 16),
               // Amenities
               const Text('Amenities', style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height:6),
               Wrap(spacing:10, runSpacing:6, children: _amenities.keys.map((k)=>FilterChip(label: Text(k), selected:_amenities[k]!, onSelected:(v)=>setState(()=>_amenities[k]=v))).toList()),
+
               const SizedBox(height:16),
               // Status + Dates
               const Text('Status', style: TextStyle(fontWeight: FontWeight.w600)),
-              Wrap(spacing:10, children: ['Vacant','ToBeVacant','Filled'].map(_statusChip).toList()),
-              if(_status=='ToBeVacant')
+              Wrap(spacing:10, children: ['Vacant','To Be Vacant'].map(_statusChip).toList()),
+              if(_status=='To Be Vacant')
                 TextButton.icon(onPressed: ()=>_pickDate(forVacant:true), icon: const Icon(Icons.date_range), label: Text(_availableFrom==null?'Pick Available From':_availableFrom!.toLocal().toString().split(' ')[0])),
-              if(_status=='Filled')
-                TextButton.icon(onPressed: ()=>_pickDate(forVacant:false), icon: const Icon(Icons.date_range), label: Text(_filledSince==null?'Pick Filled Since':_filledSince!.toLocal().toString().split(' ')[0])),
+
               const SizedBox(height:16),
               // Nearby
               const Text('Nearby', style: TextStyle(fontWeight: FontWeight.w600)),
               Wrap(spacing:10, runSpacing:6, children:_nearby.keys.map((k)=>FilterChip(label:Text(k), selected:_nearby[k]!, onSelected:(v)=>setState(()=>_nearby[k]=v))).toList()),
+
               const SizedBox(height:16),
               // Notes
               TextFormField(controller:_notesC,maxLines:3,decoration:_input('Notes / Additional Info')),
+
               const SizedBox(height:16),
               // Images
               const Text('Images (max 5)', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -429,14 +613,18 @@ class _PostPageState extends State<PostPage> {
                   Image.file(File(_images[i].path), width:100,height:100,fit:BoxFit.cover),
                   Positioned(top:0,right:0,child:GestureDetector(onTap:()=>setState(()=>_images.removeAt(i)),child:const Icon(Icons.cancel,color:Colors.red)))
                 ])))),
+
               const SizedBox(height:16),
               // Map & Address
               TextFormField(controller:_locationC, decoration:_input('Address',prefix: const Icon(Icons.location_on)), onChanged:_onLocationChanged, validator:(v)=>(v==null||v.trim().isEmpty)?'Enter location':null),
               const SizedBox(height:8),
               SizedBox(height:250, child:FlutterMap(mapController:_mapController, options:MapOptions(initialCenter:_selectedLocation, initialZoom:15, onTap:(tapPos, point){setState(()=>_selectedLocation=point);}), children:[
-                TileLayer(urlTemplate:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName:'com.example.app'),
+                TileLayer(
+                  urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                  userAgentPackageName: "com.basobaas_map",),
                 MarkerLayer(markers:[Marker(point:_selectedLocation,width:50,height:50,child:Icon(Icons.location_pin,color:_statusColor(),size:40))])
               ])),
+
               const SizedBox(height:24),
               SizedBox(width:double.infinity, child:ElevatedButton(onPressed:_submitPost,child:const Text('Submit Post', style:TextStyle(fontSize:16))))
             ],

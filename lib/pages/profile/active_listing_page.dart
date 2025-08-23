@@ -35,30 +35,54 @@ class _ActiveListingPageState extends State<ActiveListingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Active Listings"), centerTitle: true),
+      appBar: AppBar(
+        title: const Text("Active Listings"),
+        centerTitle: true,
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Consumer<PostProvider>(
         builder: (context, postProvider, _) {
-          if (postProvider.activeListings.isEmpty) {
-            return const Center(child: Text("No active listings yet."));
+          final listings = postProvider.activeListings;
+
+          if (listings.isEmpty) {
+            return const Center(
+                child: Text("No active listings yet."));
           }
 
           return RefreshIndicator(
-            onRefresh:_fetchActiveListings ,
+            onRefresh: _fetchActiveListings,
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: postProvider.activeListings.length,
+              itemCount: listings.length,
               itemBuilder: (context, index) {
-                final post = postProvider.activeListings[index];
+                final post = listings[index];
+                final isRented = post['status'] == 'Rented';
 
-                return PostCard(
-                  post: post,
-                  onToggle: () async {
-                    final filled = post['filledDate'] == null;
-                    // refresh listings immediately
-                    await _fetchActiveListings();
-                  },
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PostCard(
+                      post: post,
+                      trailing: post['status'] == 'To Be Vacant'
+                          ? null
+                          : Switch(
+                        value: isRented,
+                        activeColor: Colors.red,
+                        inactiveThumbColor: Colors.green,
+                        activeTrackColor: Colors.grey,
+                        onChanged: (value) async {
+                          final newStatus = value ? 'Rented' : 'Vacant';
+                          await postProvider.toggleStatus(post['id'], newStatus);
+                        },
+                      ),
+                      onToggle: () {
+                        // Optional: handle card tap if needed
+                      },
+                    ),
+
+
+                  ],
                 );
               },
             ),
@@ -66,5 +90,19 @@ class _ActiveListingPageState extends State<ActiveListingPage> {
         },
       ),
     );
+  }
+
+  String _formatRentedDate(dynamic rentedSince) {
+    if (rentedSince is DateTime) {
+      return rentedSince.toLocal().toString().split(' ')[0];
+    } else if (rentedSince is String) {
+      try {
+        final date = DateTime.parse(rentedSince);
+        return date.toLocal().toString().split(' ')[0];
+      } catch (_) {
+        return rentedSince;
+      }
+    }
+    return rentedSince.toString();
   }
 }

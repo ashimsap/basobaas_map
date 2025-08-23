@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
+import 'package:geocoding/geocoding.dart' as geo;
 import 'package:latlong2/latlong.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
 import 'package:basobaas_map/provider/post_provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../shared_widgets/post_detail_page.dart';
+
 
 class MapWidget extends StatefulWidget {
   const MapWidget({super.key});
@@ -17,21 +20,22 @@ class MapWidget extends StatefulWidget {
 class _MapWidgetState extends State<MapWidget> {
   final Location _locationService = Location();
   LocationData? _currentLocation;
-  bool _permissionGranted = false;
-
   static final LatLng _defaultCenter = LatLng(27.6756, 85.3459);
   late final MapController _mapController;
-  List<Marker> _postMarkers = [];
-  String? _selectedPostId; // for marker click selection
+  final PopupController _popupController = PopupController();
+  final TextEditingController _searchController = TextEditingController();
 
-  final Map<String, Map<String, dynamic>> _postsById = {};
+  Map<String, dynamic>? _selectedPost;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
     _initLocation();
-    _loadPostMarkers();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<PostProvider>(context, listen: false).refreshMarkers();
+    });
   }
 
   Future<void> _initLocation() async {
@@ -47,7 +51,6 @@ class _MapWidgetState extends State<MapWidget> {
       if (permissionGranted != PermissionStatus.granted) return;
     }
 
-    _permissionGranted = true;
     final location = await _locationService.getLocation();
     setState(() => _currentLocation = location);
 
@@ -56,68 +59,10 @@ class _MapWidgetState extends State<MapWidget> {
     });
   }
 
-  Future<void> _loadPostMarkers() async {
-    final postProvider = Provider.of<PostProvider>(context, listen: false);
-    final posts = await postProvider.fetchPostLocations();
-
-    final markers = <Marker>[];
-    _postsById.clear();
-
-    for (var post in posts) {
-      final loc = post['location'];
-      if (loc != null && loc['latitude'] != null && loc['longitude'] != null) {
-        Color markerColor;
-
-        // Handle filledDate
-        if (post['filledDate'] != null) {
-          final filledDate = post['filledDate'] is DateTime
-              ? post['filledDate'] as DateTime
-              : (post['filledDate'] as Timestamp).toDate();
-          markerColor = DateTime.now().difference(filledDate).inDays > 5
-              ? Colors.transparent
-              : Colors.red;
-        }
-        // Handle dueDate
-        else if (post['dueDate'] != null) {
-          final dueDate = post['dueDate'] is DateTime
-              ? post['dueDate'] as DateTime
-              : (post['dueDate'] as Timestamp).toDate();
-          markerColor = DateTime.now().isBefore(dueDate) ? Colors.yellow : Colors.green;
-        }
-        // Default vacant
-        else {
-          markerColor = Colors.green;
-        }
-
-        final marker = Marker(
-          key: ValueKey(post['id']),
-          point: LatLng(loc['latitude'], loc['longitude']),
-          width: 40,
-          height: 40,
-          child: GestureDetector(
-            onTap: () {
-              setState(() => _selectedPostId = post['id']);
-              // You can show bottom sheet or popup for the post here
-            },
-            child: Icon(
-              Icons.location_on,
-              color: markerColor,
-              size: 40,
-            ),
-          ),
-        );
-
-        markers.add(marker);
-        _postsById[post['id']] = post;
-      }
-    }
-
-    setState(() => _postMarkers = markers);
-  }
-
   void _goToCurrentLocation() {
     if (_currentLocation == null) return;
-    final latLng = LatLng(_currentLocation!.latitude!, _currentLocation!.longitude!);
+    final latLng =
+    LatLng(_currentLocation!.latitude!, _currentLocation!.longitude!);
     _mapController.move(latLng, 16);
   }
 
@@ -125,21 +70,152 @@ class _MapWidgetState extends State<MapWidget> {
     _mapController.rotate(0);
   }
 
+  void _showInfoPopup() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Map Information"),
+        content: const Text(
+          "This map shows rental posts in your area.\n\n"
+              "Use the search bar to find locations.\n"
+              "Tap markers to see rental details.\n"
+              "Compass resets the map orientation north.\n"
+              "Current location centers the map on you.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Close"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _searchLocation(String query) async {
+    if (query.isEmpty) return;
+
+    try {
+      // Get matching locations
+      final locations = await geo.locationFromAddress(query);
+      if (locations.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("No locations found.")),
+        );
+        return;
+      }
+
+      // Take the first result
+      final loc = locations.first;
+      final target = LatLng(loc.latitude, loc.longitude);
+
+      // Move the map to the searched location
+      _mapController.move(target, 15);
+
+      // Optionally get a human-readable address
+      final placemarks = await geo.placemarkFromCoordinates(loc.latitude, loc.longitude);
+      String address = '';
+      if (placemarks.isNotEmpty) {
+        final pm = placemarks.first;
+        address = "${pm.name ?? ''}, ${pm.locality ?? ''}, ${pm.administrativeArea ?? ''}, ${pm.country ?? ''}";
+      }
+    } catch (e) {
+      print("Search error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Error searching location.")),
+      );
+    }
+  }
+
+  void _openBottomSheet(Map<String, dynamic> post) {
+    _selectedPost = post;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      barrierColor: Colors.black.withAlpha(50),
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.37,
+          minChildSize: 0.3,
+          maxChildSize: 0.8,
+          expand: false,
+          snap: true, // enable snapping
+          snapSizes: const [0.37, 0.8], // allowed snap points
+          builder: (context, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              child: Column(
+                children: [
+                  // Pill indicator
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    width: 80,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[400],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  // PostDetailPage directly uses the scrollController
+                  Expanded(
+                    child: PostDetailPage(
+                      post: _selectedPost!,
+                      scrollController: scrollController,
+                      showAppBar: false,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+
+
+
   @override
   Widget build(BuildContext context) {
+    final postProvider = Provider.of<PostProvider>(context);
     final center = _currentLocation != null
         ? LatLng(_currentLocation!.latitude!, _currentLocation!.longitude!)
         : _defaultCenter;
 
-    final markers = <Marker>[
+    final allMarkers = <Marker>[
       if (_currentLocation != null)
         Marker(
+          key: const ValueKey('current_location'),
           point: center,
           width: 40,
           height: 40,
           child: const Icon(Icons.my_location, color: Colors.blue, size: 40),
         ),
-      ..._postMarkers,
+      ...postProvider.markers.map((marker) {
+        final postId = (marker.key as ValueKey).value.toString();
+        final post = postProvider.allPosts.firstWhere(
+              (p) => p['id'] == postId,
+          orElse: () => {},
+        );
+        return Marker(
+          key: ValueKey(post['id']),
+          point: marker.point,
+          width: marker.width,
+          height: marker.height,
+          child: GestureDetector(
+            onTap: () {
+              if (post.isNotEmpty) _openBottomSheet(post);
+            },
+            child: marker.child,
+          ),
+        );
+      }).toList(),
     ];
 
     return Scaffold(
@@ -150,32 +226,106 @@ class _MapWidgetState extends State<MapWidget> {
             options: MapOptions(
               initialCenter: center,
               initialZoom: 15,
-              onPositionChanged: (pos, _) {},
+              minZoom: 2,
+              maxZoom: 18,
+              onTap: (_, __) => _popupController.hideAllPopups(),
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.basobaas',
+                urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                userAgentPackageName: "com.basobaas_map",
               ),
-              if (markers.isNotEmpty) MarkerLayer(markers: markers),
+              PopupMarkerLayer(
+                options: PopupMarkerLayerOptions(
+                  markers: allMarkers,
+                  popupController: _popupController,
+                  markerTapBehavior: MarkerTapBehavior.none(
+                        (popupSpec, popupState, controller) {},
+                  ),
+                  selectedMarkerBuilder: (context, marker) =>
+                  const SizedBox.shrink(),
+                ),
+              ),
             ],
           ),
+
+          // Search bar
+          Positioned(
+            top: 40,
+            left: 16,
+            right: 16,
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search location...',
+                filled: true,
+                fillColor: Colors.white,
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {});
+                  },
+                )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(25),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onChanged: (_) => setState(() {}),
+              onSubmitted: _searchLocation,
+            ),
+          ),
+
+          // Compass button
+          Positioned(
+            top: 100,
+            right: 16,
+            child: ClipOval(
+              child: Material(
+                color: Colors.white,
+                child: InkWell(
+                  onTap: _resetMapRotation,
+                  child: const SizedBox(
+                    width: 50,
+                    height: 50,
+                    child: Icon(Icons.explore, color: Colors.black),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Info button
+          Positioned(
+            top: 100,
+            left: 16,
+            child: ClipOval(
+              child: Material(
+                color: Colors.white,
+                child: InkWell(
+                  onTap: _showInfoPopup,
+                  child: const SizedBox(
+                    width: 50,
+                    height: 50,
+                    child: Icon(Icons.info_outline, color: Colors.black),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
           // Current location button
           Positioned(
             bottom: 16,
             right: 16,
             child: FloatingActionButton(
+              heroTag: 'current_location',
               onPressed: _goToCurrentLocation,
               child: const Icon(Icons.my_location),
-            ),
-          ),
-          // Compass button
-          Positioned(
-            bottom: 90,
-            right: 16,
-            child: FloatingActionButton(
-              onPressed: _resetMapRotation,
-              child: const Icon(Icons.explore),
             ),
           ),
         ],

@@ -1,4 +1,4 @@
-package com.basobaas.app.basobaas_map
+package com.basobaas_map
 
 import io.flutter.embedding.android.FlutterActivity
 

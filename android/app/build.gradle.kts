@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.basobaas.app.basobaas_map"
+    namespace = "com.basobaas_map"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 

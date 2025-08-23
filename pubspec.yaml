@@ -40,10 +40,13 @@ dependencies:
   firebase_auth:
   provider:
   lottie: ^3.3.0
+  persistent_bottom_nav_bar: ^6.2.1
   image_picker:
   font_awesome_flutter: any
   fuzzywuzzy:
   flutter_map: any
+  flutter_map_marker_popup:
+  intl:
   latlong2: any
   location: any
   permission_handler:

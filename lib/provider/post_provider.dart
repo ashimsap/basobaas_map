@@ -61,7 +61,7 @@ class PostProvider with ChangeNotifier {
   Set<String> _amenitiesFilter = {};
   Set<String> get amenitiesFilter => _amenitiesFilter;
 
-  String? _parkingFilter; // "Car", "Bike", "Both", null = off
+  String? _parkingFilter;
   String? get parkingFilter => _parkingFilter;
 
   Set<String> _nearbyFilter = {};
@@ -150,7 +150,7 @@ class PostProvider with ChangeNotifier {
         final descScore = ratio(desc, query);
         final addrScore = ratio(addr, query);
 
-        return titleScore > 60 || descScore > 60 || addrScore > 60;
+        return titleScore > 30 || descScore > 30 || addrScore > 30;
       }).toList();
     }
 
@@ -299,11 +299,15 @@ class PostProvider with ChangeNotifier {
     notifyListeners();
 
     List<String> uploadedImageUrls = [];
+    const defaultImageUrl = 'https://cccljhxlvmizkugxgoxi.supabase.co/storage/v1/object/public/Basobas/Home.png';
 
     try {
-      if (metadata['price'] is String) {
-        metadata['price'] = double.tryParse(metadata['price']) ?? 0;
-      }
+      // Ensure price is numeric
+      metadata['price'] = metadata['price'] is num
+          ? metadata['price']
+          : double.tryParse(metadata['price']?.toString() ?? '0') ?? 0;
+
+      // Upload images to Supabase
       for (var img in images) {
         final fileBytes = await img.readAsBytes();
         final fileName =
@@ -315,15 +319,21 @@ class PostProvider with ChangeNotifier {
         supabaseClient.storage.from('rental-images').getPublicUrl(fileName);
         uploadedImageUrls.add(url);
       }
+      //default image if non added
+      if (uploadedImageUrls.isEmpty) {
+        uploadedImageUrls.add(defaultImageUrl);
+      }
 
+      // Save rental post
       final docRef = await _firestore.collection('rentals').add({
         ...metadata,
         'images': uploadedImageUrls,
         'userId': userId,
         'createdAt': FieldValue.serverTimestamp(),
-        'filledSince': metadata['filledSince'] ?? null,
+        'rentedSince': metadata['rentedSince'] ?? null,
       });
 
+      // Add map marker
       final loc = metadata['location'];
       if (loc != null && loc['latitude'] != null && loc['longitude'] != null) {
         final color = _getMarkerColor(metadata);
@@ -340,6 +350,7 @@ class PostProvider with ChangeNotifier {
       _loading = false;
       notifyListeners();
     } catch (e) {
+      // Rollback uploaded images if failed
       for (var url in uploadedImageUrls) {
         final path = url.split('/').last;
         try {
@@ -358,52 +369,67 @@ class PostProvider with ChangeNotifier {
     List<String>? newImages,
   }) async {
     try {
+      // Merge new images
       if (newImages != null && newImages.isNotEmpty) {
         final currentImages = List<String>.from(metadata['images'] ?? []);
         metadata['images'] = [...currentImages, ...newImages];
       }
-      if (metadata['price'] is String) {
-        metadata['price'] = double.tryParse(metadata['price']) ?? 0;
-      }
+
+      // Ensure price is numeric
+      metadata['price'] = metadata['price'] is num
+          ? metadata['price']
+          : double.tryParse(metadata['price']?.toString() ?? '0') ?? 0;
 
       await _firestore.collection('rentals').doc(postId).update(metadata);
 
-      final index = _activeListings.indexWhere((p) => p['id'] == postId);
-      if (index != -1) {
-        _activeListings[index] = {..._activeListings[index], ...metadata};
-
-        final loc = _activeListings[index]['location'];
-        if (loc != null && loc['latitude'] != null && loc['longitude'] != null) {
-          final markerIndex =
-          _markers.indexWhere((m) => (m.key as ValueKey).value == postId);
-          final color = _getMarkerColor(_activeListings[index]);
-          if (markerIndex != -1) {
-            _markers[markerIndex] = Marker(
-              key: ValueKey(postId),
-              point: LatLng(loc['latitude'], loc['longitude']),
-              width: 40,
-              height: 40,
-              child: Icon(Icons.location_on, color: color, size: 40),
-            );
-          }
-        }
-
-        notifyListeners();
+      // Update local copies
+      final activeIndex = _activeListings.indexWhere((p) => p['id'] == postId);
+      if (activeIndex != -1) {
+        _activeListings[activeIndex] = {..._activeListings[activeIndex], ...metadata};
       }
+
+      final allIndex = _allPosts.indexWhere((p) => p['id'] == postId);
+      if (allIndex != -1) {
+        _allPosts[allIndex] = {..._allPosts[allIndex], ...metadata};
+      }
+
+      // Update marker color
+      final loc = _activeListings[activeIndex]['location'];
+      if (loc != null) {
+        final markerIndex =
+        _markers.indexWhere((m) => (m.key as ValueKey).value == postId);
+        if (markerIndex != -1) {
+          _markers[markerIndex] = Marker(
+            key: ValueKey(postId),
+            point: LatLng(loc['latitude'], loc['longitude']),
+            width: 40,
+            height: 40,
+            child: Icon(
+              Icons.location_on,
+              color: _getMarkerColor(_activeListings[activeIndex]),
+              size: 40,
+            ),
+          );
+        }
+      }
+
+      notifyListeners();
     } catch (e) {
       throw Exception('Failed to update post: $e');
     }
   }
+
+
 
   Future<void> toggleStatus(String postId, String newStatus) async {
     final index = _activeListings.indexWhere((p) => p['id'] == postId);
     if (index == -1) return;
 
     Map<String, dynamic> updateData = {'status': newStatus};
-    if (newStatus == 'Filled') {
-      updateData['filledSince'] = DateTime.now().toIso8601String();
+    if (newStatus == 'Rented') {
+      updateData['rentedSince'] = DateTime.now().toIso8601String();
     } else if (newStatus == 'Vacant') {
-      updateData['filledSince'] = null;
+      updateData['rentedSince'] = null;
     }
 
     await _firestore.collection('rentals').doc(postId).update(updateData);
@@ -432,7 +458,7 @@ class PostProvider with ChangeNotifier {
     final now = DateTime.now();
     final snapshot = await _firestore
         .collection('rentals')
-        .where('status', isEqualTo: 'ToBeVacant')
+        .where('status', isEqualTo: 'To Be Vacant')
         .get();
 
     for (var doc in snapshot.docs) {
@@ -472,9 +498,9 @@ class PostProvider with ChangeNotifier {
   Color _getMarkerColor(Map<String, dynamic> rental) {
     final status = rental['status'];
     switch (status) {
-      case 'ToBeVacant':
+      case 'To Be Vacant':
         return Colors.orange;
-      case 'Filled':
+      case 'Rented':
         return Colors.red;
       default:
         return Colors.green;
@@ -485,16 +511,30 @@ class PostProvider with ChangeNotifier {
   // Fetching Posts & Saved Rentals
   // =========================
   Future<void> fetchAllPosts(String userId) async {
-    final snapshot = await _firestore.collection('rentals').get();
-    _allPosts = snapshot.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
+    try {
+      final snapshot = await _firestore.collection('rentals').get();
 
-    await fetchSavedRentals(userId);
-    notifyListeners();
+      _allPosts = snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+
+        // Ensure 'price' is always a number (or 0 if missing)
+        if (data['price'] != null && data['price'] is! num) {
+          data['price'] = num.tryParse(data['price'].toString()) ?? 0;
+        }
+
+        return data;
+      }).toList();
+
+      // Fetch saved rentals safely
+      await fetchSavedRentals(userId);
+    } catch (e, st) {
+      debugPrint('Error fetching posts: $e\n$st');
+    } finally {
+      notifyListeners(); // always notify listeners
+    }
   }
+
 
   Future<void> toggleSavePost(String postId, String userId) async {
     final savedRef = _firestore
@@ -511,7 +551,6 @@ class PostProvider with ChangeNotifier {
     }
 
     final index = _allPosts.indexWhere((p) => p['id'] == postId);
-    if (index != -1) _allPosts[index]['isSaved'] = !(_allPosts[index]['isSaved'] ?? false);
 
     await fetchSavedRentals(userId);
     notifyListeners();
@@ -530,7 +569,9 @@ class PostProvider with ChangeNotifier {
     }
 
     _savedRentals = _allPosts.where((p) => p['isSaved'] == true).toList();
+    notifyListeners();
   }
+  ///---------Active Listings-----------
 
   Future<void> fetchActiveListings(String userId) async {
     final snapshot = await _firestore
@@ -542,26 +583,31 @@ class PostProvider with ChangeNotifier {
       final data = doc.data();
       data['id'] = doc.id;
 
-      DateTime? dueDate;
-      if (data['dueDate'] != null) {
-        dueDate = data['dueDate'] is Timestamp
-            ? (data['dueDate'] as Timestamp).toDate()
-            : data['dueDate'] as DateTime;
+      // Parse availableFrom if present
+      DateTime? availableFrom;
+      if (data['availableFrom'] != null) {
+        availableFrom = data['availableFrom'] is Timestamp
+            ? (data['availableFrom'] as Timestamp).toDate()
+            : DateTime.parse(data['availableFrom']);
       }
 
-      DateTime? filledDate;
-      if (data['filledSince'] != null) {
-        filledDate = data['filledSince'] is Timestamp
-            ? (data['filledSince'] as Timestamp).toDate()
-            : DateTime.parse(data['filledSince']);
+      // Parse rentedSince if present
+      DateTime? rentedSince;
+      if (data['rentedSince'] != null) {
+        rentedSince = data['rentedSince'] is Timestamp
+            ? (data['rentedSince'] as Timestamp).toDate()
+            : DateTime.parse(data['rentedSince']);
       }
 
-      if (filledDate != null) {
-        data['status'] = 'Filled';
-      } else if (dueDate != null && DateTime.now().isBefore(dueDate)) {
-        data['status'] = 'ToBeVacant';
+      // Determine current status
+      if (rentedSince != null) {
+        data['status'] = 'Rented';
+      } else if (availableFrom != null && DateTime.now().isBefore(availableFrom)) {
+        data['status'] = 'To Be Vacant';
+        data['rentedSince'] = null; // ensure toggle won't show
       } else {
         data['status'] = 'Vacant';
+        data['rentedSince'] = null; // ensure toggle won't show
       }
 
       return data;
@@ -569,6 +615,8 @@ class PostProvider with ChangeNotifier {
 
     notifyListeners();
   }
+
+
 
   // =========================
   // Markers & Real-Time Listener
@@ -580,7 +628,7 @@ class PostProvider with ChangeNotifier {
         .map((post) {
       final loc = post['location'];
       return Marker(
-        key: ValueKey(post['id']),
+        key: ValueKey(post['id']), // unique key
         point: LatLng(loc['latitude'], loc['longitude']),
         width: 40,
         height: 40,
@@ -589,6 +637,7 @@ class PostProvider with ChangeNotifier {
     }).toList();
     notifyListeners();
   }
+
 
   void _listenToPosts() {
     _postSub = _firestore.collection('rentals').snapshots().listen((snapshot) {

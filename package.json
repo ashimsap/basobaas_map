@@ -1,0 +1,14 @@
+{
+  "name": "basobaas-scripts",
+  "version": "1.0.0",
+  "description": "Scripts for Basobaas rental status checks",
+  "main": "scripts/checkRentalStatus.js",
+  "scripts": {
+    "check-status": "node scripts/checkRentalStatus.js"
+  },
+  "author": "Ashim Sapkota",
+  "license": "MIT",
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}
