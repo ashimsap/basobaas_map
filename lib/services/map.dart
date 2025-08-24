@@ -79,13 +79,40 @@ class _MapWidgetState extends State<MapWidget> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Map Information"),
-        content: const Text(
-          "This map shows rental posts in your area.\n\n"
-              "Use the search bar to find locations.\n"
-              "Tap markers to see rental details.\n"
-              "Compass resets the map orientation north.\n"
-              "Current location centers the map on you.",
+        title: Center(child: const Text("Map Information")),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "This map shows rental posts in your area.\n"
+                  "Use the search bar to find locations.\n"
+                  "Tap markers to see rental details.\n"
+                  "Current location centers the map on you.\n",
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: const [
+                Icon(Icons.location_on, color: Colors.green),
+                SizedBox(width: 8),
+                Text("Vacant"),
+              ],
+            ),
+            Row(
+              children: const [
+                Icon(Icons.location_on, color: Colors.red),
+                SizedBox(width: 8),
+                Text("Rented"),
+              ],
+            ),
+            Row(
+              children: const [
+                Icon(Icons.location_on, color: Colors.orange),
+                SizedBox(width: 8),
+                Text("To be available soon"),
+              ],
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -96,6 +123,8 @@ class _MapWidgetState extends State<MapWidget> {
       ),
     );
   }
+
+
 
   /// Search location by query
   void _searchLocation(String query) async {
@@ -113,18 +142,7 @@ class _MapWidgetState extends State<MapWidget> {
       final loc = locations.first;
       final target = LatLng(loc.latitude, loc.longitude);
       _mapController.move(target, 15);
-
-      // Optionally fetch readable address (currently unused)
-      final placemarks =
-      await geo.placemarkFromCoordinates(loc.latitude, loc.longitude);
-      if (placemarks.isNotEmpty) {
-        final pm = placemarks.first;
-        final address =
-            "${pm.name ?? ''}, ${pm.locality ?? ''}, ${pm.administrativeArea ?? ''}, ${pm.country ?? ''}";
-        // You can display address if needed
-      }
     } catch (e) {
-      print("Search error: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Error searching location.")),
       );
@@ -146,19 +164,19 @@ class _MapWidgetState extends State<MapWidget> {
           minChildSize: 0.3,
           maxChildSize: 0.8,
           expand: false,
-          snap: true,
+          snap: false,
           snapSizes: const [0.37, 0.8],
           builder: (context, scrollController) {
             return Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
               ),
               child: Column(
                 children: [
                   // Pill indicator
                   Container(
-                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    margin: const EdgeInsets.symmetric(vertical: 3),
                     width: 80,
                     height: 5,
                     decoration: BoxDecoration(
@@ -171,7 +189,6 @@ class _MapWidgetState extends State<MapWidget> {
                     child: PostDetailPage(
                       post: _selectedPost!,
                       scrollController: scrollController,
-                      showAppBar: false,
                     ),
                   ),
                 ],
@@ -207,7 +224,6 @@ class _MapWidgetState extends State<MapWidget> {
               (p) => p['id'] == postId,
           orElse: () => {},
         );
-        if (post == null) return null; // skip if post not found
 
         return Marker(
           key: ValueKey(post['id']),
@@ -335,6 +351,7 @@ class _MapWidgetState extends State<MapWidget> {
             bottom: 16,
             right: 16,
             child: FloatingActionButton(
+              shape: const CircleBorder(),
               heroTag: 'current_location',
               onPressed: _goToCurrentLocation,
               child: const Icon(Icons.my_location),

@@ -323,15 +323,6 @@ class PostProvider with ChangeNotifier {
       if (uploadedImageUrls.isEmpty) {
         uploadedImageUrls.add(defaultImageUrl);
       }
-
-      // Save rental post
-      final docRef = await _firestore.collection('rentals').add({
-        ...metadata,
-        'images': uploadedImageUrls,
-        'userId': userId,
-        'createdAt': FieldValue.serverTimestamp(),
-        'rentedSince': metadata['rentedSince'] ?? null,
-      });
       _loading = false;
       notifyListeners();
     } catch (e) {
@@ -529,8 +520,6 @@ class PostProvider with ChangeNotifier {
     } else {
       await savedRef.set({'savedAt': FieldValue.serverTimestamp()});
     }
-
-    final index = _allPosts.indexWhere((p) => p['id'] == postId);
 
     await fetchSavedRentals(userId);
     notifyListeners();

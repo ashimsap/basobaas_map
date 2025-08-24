@@ -1,10 +1,8 @@
-import 'package:basobaas_map/pages/login/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 
 import '../../provider/auth_provider.dart';
-import '../base_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});

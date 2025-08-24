@@ -66,7 +66,7 @@ class PostCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => PostDetailPage(post: post, canEdit: true),
+            builder: (_) => PostDetailPage(post: post, canEdit: true,),
           ),
         );
       },

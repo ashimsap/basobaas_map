@@ -19,7 +19,6 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   File? _profileImage;
-  final ImagePicker _picker = ImagePicker();
 
 
   Future<void> _pickImage() async {
@@ -159,8 +158,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 color: Colors.orange.withAlpha(10),
                 child: ListTile(
                   leading: const Icon(Icons.contact_mail, color: Colors.green),
-                  title: const Text("contact info", style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text(""),
+                  title: const Text("Contact Info", style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text("Add contact Details"),
                   trailing: const Icon(Icons.chevron_right),
                 ),
               ),
