@@ -9,7 +9,6 @@ import 'package:provider/provider.dart';
 import 'package:basobaas_map/provider/post_provider.dart';
 import '../shared_widgets/post_detail_page.dart';
 
-
 class MapWidget extends StatefulWidget {
   const MapWidget({super.key});
 
@@ -21,6 +20,7 @@ class _MapWidgetState extends State<MapWidget> {
   final Location _locationService = Location();
   LocationData? _currentLocation;
   static final LatLng _defaultCenter = LatLng(27.6756, 85.3459);
+
   late final MapController _mapController;
   final PopupController _popupController = PopupController();
   final TextEditingController _searchController = TextEditingController();
@@ -33,11 +33,13 @@ class _MapWidgetState extends State<MapWidget> {
     _mapController = MapController();
     _initLocation();
 
+    // Refresh markers after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<PostProvider>(context, listen: false).refreshMarkers();
     });
   }
 
+  /// Initialize user location and listen to changes
   Future<void> _initLocation() async {
     bool serviceEnabled = await _locationService.serviceEnabled();
     if (!serviceEnabled) {
@@ -59,6 +61,7 @@ class _MapWidgetState extends State<MapWidget> {
     });
   }
 
+  /// Move map to current location
   void _goToCurrentLocation() {
     if (_currentLocation == null) return;
     final latLng =
@@ -66,10 +69,12 @@ class _MapWidgetState extends State<MapWidget> {
     _mapController.move(latLng, 16);
   }
 
+  /// Reset map rotation to north
   void _resetMapRotation() {
     _mapController.rotate(0);
   }
 
+  /// Show information popup about the map
   void _showInfoPopup() {
     showDialog(
       context: context,
@@ -92,11 +97,11 @@ class _MapWidgetState extends State<MapWidget> {
     );
   }
 
+  /// Search location by query
   void _searchLocation(String query) async {
     if (query.isEmpty) return;
 
     try {
-      // Get matching locations
       final locations = await geo.locationFromAddress(query);
       if (locations.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -105,19 +110,18 @@ class _MapWidgetState extends State<MapWidget> {
         return;
       }
 
-      // Take the first result
       final loc = locations.first;
       final target = LatLng(loc.latitude, loc.longitude);
-
-      // Move the map to the searched location
       _mapController.move(target, 15);
 
-      // Optionally get a human-readable address
-      final placemarks = await geo.placemarkFromCoordinates(loc.latitude, loc.longitude);
-      String address = '';
+      // Optionally fetch readable address (currently unused)
+      final placemarks =
+      await geo.placemarkFromCoordinates(loc.latitude, loc.longitude);
       if (placemarks.isNotEmpty) {
         final pm = placemarks.first;
-        address = "${pm.name ?? ''}, ${pm.locality ?? ''}, ${pm.administrativeArea ?? ''}, ${pm.country ?? ''}";
+        final address =
+            "${pm.name ?? ''}, ${pm.locality ?? ''}, ${pm.administrativeArea ?? ''}, ${pm.country ?? ''}";
+        // You can display address if needed
       }
     } catch (e) {
       print("Search error: $e");
@@ -127,6 +131,7 @@ class _MapWidgetState extends State<MapWidget> {
     }
   }
 
+  /// Open bottom sheet with post details
   void _openBottomSheet(Map<String, dynamic> post) {
     _selectedPost = post;
 
@@ -141,8 +146,8 @@ class _MapWidgetState extends State<MapWidget> {
           minChildSize: 0.3,
           maxChildSize: 0.8,
           expand: false,
-          snap: true, // enable snapping
-          snapSizes: const [0.37, 0.8], // allowed snap points
+          snap: true,
+          snapSizes: const [0.37, 0.8],
           builder: (context, scrollController) {
             return Container(
               decoration: const BoxDecoration(
@@ -161,7 +166,7 @@ class _MapWidgetState extends State<MapWidget> {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  // PostDetailPage directly uses the scrollController
+                  // PostDetailPage uses scrollController for smooth scrolling
                   Expanded(
                     child: PostDetailPage(
                       post: _selectedPost!,
@@ -178,17 +183,14 @@ class _MapWidgetState extends State<MapWidget> {
     );
   }
 
-
-
-
-  @override
-  Widget build(BuildContext context) {
-    final postProvider = Provider.of<PostProvider>(context);
+  /// Build markers safely with unique keys
+  List<Marker> _buildMarkers(PostProvider postProvider) {
     final center = _currentLocation != null
         ? LatLng(_currentLocation!.latitude!, _currentLocation!.longitude!)
         : _defaultCenter;
 
-    final allMarkers = <Marker>[
+    return [
+      // Current user location marker
       if (_currentLocation != null)
         Marker(
           key: const ValueKey('current_location'),
@@ -197,26 +199,36 @@ class _MapWidgetState extends State<MapWidget> {
           height: 40,
           child: const Icon(Icons.my_location, color: Colors.blue, size: 40),
         ),
+
+      // Markers from provider, safely filtered
       ...postProvider.markers.map((marker) {
         final postId = (marker.key as ValueKey).value.toString();
         final post = postProvider.allPosts.firstWhere(
               (p) => p['id'] == postId,
           orElse: () => {},
         );
+        if (post == null) return null; // skip if post not found
+
         return Marker(
           key: ValueKey(post['id']),
           point: marker.point,
           width: marker.width,
           height: marker.height,
           child: GestureDetector(
-            onTap: () {
-              if (post.isNotEmpty) _openBottomSheet(post);
-            },
+            onTap: () => _openBottomSheet(post),
             child: marker.child,
           ),
         );
-      }).toList(),
+      }).whereType<Marker>(), // remove nulls safely
     ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final postProvider = Provider.of<PostProvider>(context);
+    final center = _currentLocation != null
+        ? LatLng(_currentLocation!.latitude!, _currentLocation!.longitude!)
+        : _defaultCenter;
 
     return Scaffold(
       body: Stack(
@@ -237,7 +249,7 @@ class _MapWidgetState extends State<MapWidget> {
               ),
               PopupMarkerLayer(
                 options: PopupMarkerLayerOptions(
-                  markers: allMarkers,
+                  markers: _buildMarkers(postProvider),
                   popupController: _popupController,
                   markerTapBehavior: MarkerTapBehavior.none(
                         (popupSpec, popupState, controller) {},

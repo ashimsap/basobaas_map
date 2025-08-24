@@ -332,21 +332,6 @@ class PostProvider with ChangeNotifier {
         'createdAt': FieldValue.serverTimestamp(),
         'rentedSince': metadata['rentedSince'] ?? null,
       });
-
-      // Add map marker
-      final loc = metadata['location'];
-      if (loc != null && loc['latitude'] != null && loc['longitude'] != null) {
-        final color = _getMarkerColor(metadata);
-        _markers.add(Marker(
-          key: ValueKey(docRef.id),
-          point: LatLng(loc['latitude'], loc['longitude']),
-          width: 40,
-          height: 40,
-          child: Icon(Icons.location_on, color: color, size: 40),
-        ));
-        notifyListeners();
-      }
-
       _loading = false;
       notifyListeners();
     } catch (e) {
@@ -418,9 +403,7 @@ class PostProvider with ChangeNotifier {
       throw Exception('Failed to update post: $e');
     }
   }
-
-
-
+  //toggle switch from active listing page
   Future<void> toggleStatus(String postId, String newStatus) async {
     final index = _activeListings.indexWhere((p) => p['id'] == postId);
     if (index == -1) return;
@@ -507,9 +490,6 @@ class PostProvider with ChangeNotifier {
     }
   }
 
-  // =========================
-  // Fetching Posts & Saved Rentals
-  // =========================
   Future<void> fetchAllPosts(String userId) async {
     try {
       final snapshot = await _firestore.collection('rentals').get();
@@ -574,47 +554,42 @@ class PostProvider with ChangeNotifier {
   ///---------Active Listings-----------
 
   Future<void> fetchActiveListings(String userId) async {
-    final snapshot = await _firestore
-        .collection('rentals')
-        .where('userId', isEqualTo: userId)
-        .get();
+    try {
+      final snapshot = await _firestore
+          .collection('rentals')
+          .where('userId', isEqualTo: userId)
+          .get();
 
-    _activeListings = snapshot.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
+      _activeListings = snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
 
-      // Parse availableFrom if present
-      DateTime? availableFrom;
-      if (data['availableFrom'] != null) {
-        availableFrom = data['availableFrom'] is Timestamp
+        // Parse dates safely
+        data['availableFrom'] = data['availableFrom'] != null
+            ? (data['availableFrom'] is Timestamp
             ? (data['availableFrom'] as Timestamp).toDate()
-            : DateTime.parse(data['availableFrom']);
-      }
+            : DateTime.tryParse(data['availableFrom'].toString()))
+            : null;
 
-      // Parse rentedSince if present
-      DateTime? rentedSince;
-      if (data['rentedSince'] != null) {
-        rentedSince = data['rentedSince'] is Timestamp
+        data['rentedSince'] = data['rentedSince'] != null
+            ? (data['rentedSince'] is Timestamp
             ? (data['rentedSince'] as Timestamp).toDate()
-            : DateTime.parse(data['rentedSince']);
-      }
+            : DateTime.tryParse(data['rentedSince'].toString()))
+            : null;
 
-      // Determine current status
-      if (rentedSince != null) {
-        data['status'] = 'Rented';
-      } else if (availableFrom != null && DateTime.now().isBefore(availableFrom)) {
-        data['status'] = 'To Be Vacant';
-        data['rentedSince'] = null; // ensure toggle won't show
-      } else {
-        data['status'] = 'Vacant';
-        data['rentedSince'] = null; // ensure toggle won't show
-      }
+        // Ensure status exists
+        data['status'] = data['status'] ?? 'Vacant';
 
-      return data;
-    }).toList();
+        return data;
+      }).toList();
 
-    notifyListeners();
+      notifyListeners();
+    } catch (e, st) {
+      debugPrint('Error fetching active listings: $e\n$st');
+    }
   }
+
+
 
 
 
@@ -626,17 +601,24 @@ class PostProvider with ChangeNotifier {
     _markers = posts
         .where((p) => p['location'] != null)
         .map((post) {
-      final loc = post['location'];
+      final loc = post['location'] as Map<String, dynamic>?; // <-- type cast
+      if (loc == null || loc['latitude'] == null || loc['longitude'] == null) {
+        return null; // skip invalid
+      }
       return Marker(
-        key: ValueKey(post['id']), // unique key
-        point: LatLng(loc['latitude'], loc['longitude']),
+        key: ValueKey(post['id']),
+        point: LatLng(
+          loc['latitude'] as double,
+          loc['longitude'] as double,
+        ),
         width: 40,
         height: 40,
         child: Icon(Icons.location_on, color: _getMarkerColor(post), size: 40),
       );
-    }).toList();
+    }).whereType<Marker>().toList(); // removes nulls
     notifyListeners();
   }
+
 
 
   void _listenToPosts() {

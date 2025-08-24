@@ -122,7 +122,7 @@ class PostCard extends StatelessWidget {
                   ),
                 ),
               ],
-              if (rentedSince != null) ...[
+              if (postStatus == 'Rented' && rentedSince != null) ...[
                 const SizedBox(height: 4),
                 Text(
                   "Rented Since: ${_formatDate(rentedSince)}",

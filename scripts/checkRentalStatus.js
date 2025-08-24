@@ -1,55 +1,60 @@
 const admin = require("firebase-admin");
-
-// Initialize Firebase with the service account JSON
 const serviceAccount = require("../serviceAccountKey.json");
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
 });
 
 const db = admin.firestore();
 
-async function checkRentalStatus() {
+async function processRentals() {
   try {
-    const postsRef = db.collection("posts");
-    const snapshot = await postsRef.get();
+    const rentalsRef = db.collection("rentals");
+    const snapshot = await rentalsRef.get();
 
     const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // ignore time
     const batch = db.batch();
 
     snapshot.forEach((doc) => {
-      const post = doc.data();
+      const rental = doc.data();
       const docRef = doc.ref;
 
-      // Update "To Be Vacant" → "Vacant"
-      if (post.status === "To Be Vacant" && post.availableFrom) {
-        const availableDate = new Date(post.availableFrom);
-        if (now >= availableDate) {
-          batch.update(docRef, { status: "Vacant" });
+      const rentedSince = rental.rentedSince ? new Date(rental.rentedSince) : null;
+      const availableFrom = rental.availableFrom ? new Date(rental.availableFrom) : null;
+
+      // ======== Auto status update logic ========
+      if (rental.status === "To Be Vacant" && availableFrom) {
+        // If availableFrom is today or past, mark as Vacant
+        if (availableFrom <= today) {
+          console.log(`Rental ${doc.id} changing status To Be Vacant → Vacant`);
+          batch.update(docRef, {
+            status: "Vacant",
+            availableFrom: null
+          });
         }
       }
 
-      // Delete posts 5 days after rentedSince
-      if (post.status === "Rented" && post.rentedSince) {
-        const rentedDate = new Date(post.rentedSince);
-        const diffTime = now - rentedDate;
-        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+      // ======== Auto delete logic ========
+      if (rentedSince) {
+        const diffDays = (today - new Date(rentedSince.getFullYear(), rentedSince.getMonth(), rentedSince.getDate())) / (1000 * 60 * 60 * 24);
         if (diffDays >= 5) {
+          console.log(`Rental ${doc.id} rented ${diffDays} days ago → Deleting`);
           batch.delete(docRef);
         }
       }
     });
 
     await batch.commit();
-    console.log("Rental status check complete!");
+    console.log("Rental status update and cleanup complete!");
   } catch (error) {
-    console.error("Error checking rental statuses:", error);
+    console.error("Error processing rentals:", error);
   }
 }
 
-// Run the function if executed directly
+// Run manually if executed directly
 if (require.main === module) {
-  checkRentalStatus();
+  processRentals();
 }
 
-module.exports = checkRentalStatus;
+module.exports = processRentals;
