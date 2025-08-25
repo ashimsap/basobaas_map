@@ -91,4 +91,18 @@ class _ActiveListingPageState extends State<ActiveListingPage> {
       ),
     );
   }
+
+  String _formatRentedDate(dynamic rentedSince) {
+    if (rentedSince is DateTime) {
+      return rentedSince.toLocal().toString().split(' ')[0];
+    } else if (rentedSince is String) {
+      try {
+        final date = DateTime.parse(rentedSince);
+        return date.toLocal().toString().split(' ')[0];
+      } catch (_) {
+        return rentedSince;
+      }
+    }
+    return rentedSince.toString();
+  }
 }

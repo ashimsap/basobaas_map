@@ -16,16 +16,10 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
-    _searchFocusNode.addListener(() {
-      if (!_searchFocusNode.hasFocus) {
-        setState(() {}); // rebuild so cursor disappears
-      }
-    });
     _fetchPosts();
   }
 
@@ -40,7 +34,6 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _searchController.dispose();
-    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -110,10 +103,7 @@ class _HomePageState extends State<HomePage> {
                     Expanded(
                       child: TextField(
                         controller: _searchController,
-                        focusNode: _searchFocusNode,
-                        showCursor: _searchFocusNode.hasFocus,
                         decoration: const InputDecoration(
-                          disabledBorder: InputBorder.none,
                           hintText: "Room Khojdai Ho?",
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(horizontal: 8),
@@ -129,7 +119,6 @@ class _HomePageState extends State<HomePage> {
                         icon: const Icon(Icons.close, color: Colors.grey),
                         onPressed: () {
                           _searchController.clear();
-                          _searchFocusNode.unfocus();
                           postProvider.updateSearch("");
                         },
                       ),
@@ -230,7 +219,7 @@ class _HomePageState extends State<HomePage> {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => PostDetailPage(post: post,)),
+          MaterialPageRoute(builder: (_) => PostDetailPage(post: post)),
         );
       },
       child: Card(

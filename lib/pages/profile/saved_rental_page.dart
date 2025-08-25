@@ -33,7 +33,7 @@ class SavedRentalsPage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => PostDetailPage(post: post,),
+                      builder: (_) => PostDetailPage(post: post),
                     ),
                   );
                 },

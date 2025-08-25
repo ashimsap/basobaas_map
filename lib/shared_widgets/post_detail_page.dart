@@ -12,11 +12,13 @@ class PostDetailPage extends StatelessWidget {
   final Map<String, dynamic> post;
   final bool canEdit;
   final ScrollController? scrollController;
+  final bool showAppBar;
   const PostDetailPage({
     super.key,
     required this.post,
     this.canEdit = false,
     this.scrollController,
+    this.showAppBar=true,
   });
 
   // =========================
@@ -97,11 +99,33 @@ class PostDetailPage extends StatelessWidget {
       );
     }
 
-    return SafeArea(
-      child: Scaffold(
-        body: ListView(
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: showAppBar? AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(post['title'] ?? '', style: const TextStyle(color: Colors.black)),
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.black),
+        actions: [
+          if (canEdit) // only show edit button if allowed
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.blue),
+              onPressed: () {
+                // Navigate to EditPostPage
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_)=>EditPostPage(post: post),
+                    ),
+                );
+              },
+            ),
+        ],
+      ): null,
+      body: SafeArea(
+        child: ListView(
           controller: scrollController ?? ScrollController(),
-          padding: EdgeInsets.all(9),
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           children: [
             // Images Carousel
             if (post['images'] != null && post['images'].isNotEmpty)
@@ -164,33 +188,42 @@ class PostDetailPage extends StatelessWidget {
                     ),
                 ],
               ),
-      
-            const SizedBox(height: 12),
-      
-            // Title & Description
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(post['title'] ?? '', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),textAlign: TextAlign.center,),
-                if (canEdit)
-                  IconButton(
-                    icon: Icon(Icons.edit),
-                    onPressed: (){
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => EditPostPage(postData: post, postId: post['id']),
-                        ),
-                      );
-                    },
-                  )
 
-              ],
-            ),
+            const SizedBox(height: 12),
+
+            // Title & Description
+            Text(post['title'] ?? '', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
             Text(post['description'] ?? '', style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 12),
+
+            // Property type
+            if (post['propertyType'] != null) ...[
+              Text.rich(
+                TextSpan(
+                  children: [
+                    const TextSpan(text: 'Property Type: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                    TextSpan(text: '${post['propertyType'] ?? '-'}', style: const TextStyle(fontWeight: FontWeight.normal)),
+                  ],
+                ),
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            // Price & Status
+            Text.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(text: 'Price: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                  TextSpan(text: 'RS ${post['price'] ?? '-'}', style: const TextStyle(fontWeight: FontWeight.normal)),
+                  if (post['negotiable'] == true) const TextSpan(text: ' (Negotiable)', style: TextStyle(fontStyle: FontStyle.italic)),
+                ],
+              ),
+              style: const TextStyle(fontSize: 16),
+            ),
+
             const SizedBox(height: 8),
-            ///--------status & date----------
             Row(
               children: [
                 const Text('Status: ', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -201,7 +234,7 @@ class PostDetailPage extends StatelessWidget {
                 ),
               ],
             ),
-      
+
             // Status-dependent dates
             if (post['status'] == 'To Be Vacant' && post['availableFrom'] != null) ...[
               const SizedBox(height: 12),
@@ -237,40 +270,13 @@ class PostDetailPage extends StatelessWidget {
                 style: const TextStyle(fontSize: 16),
               ),
             ],
-            SizedBox(height: 8,),
-      
-      
-            // Property type
-            if (post['propertyType'] != null) ...[
-              Text.rich(
-                TextSpan(
-                  children: [
-                    const TextSpan(text: 'Property Type: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                    TextSpan(text: '${post['propertyType'] ?? '-'}', style: const TextStyle(fontWeight: FontWeight.normal)),
-                  ],
-                ),
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 8),
-            ],
-      
+
+
             // Room/Hall/Kitchen sizes
             _sizesList('Rooms', post['roomSizes'] ?? []),
             _sizesList('Halls', post['hallSizes'] ?? []),
             _sizesList('Kitchens', post['kitchenSizes'] ?? []),
-      
-            // Price & Status
-            Text.rich(
-              TextSpan(
-                children: [
-                  const TextSpan(text: 'Price: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                  TextSpan(text: 'Rs.${post['price'] ?? '-'}', style: const TextStyle(fontWeight: FontWeight.normal)),
-                  if (post['negotiable'] == true) const TextSpan(text: ' (Negotiable)', style: TextStyle(fontStyle: FontStyle.italic)),
-                ],
-              ),
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 6),
+
             // Floor
             if (post['floor'] != null)
               Text.rich(
@@ -281,7 +287,7 @@ class PostDetailPage extends StatelessWidget {
                   ],
                 ),
               ),
-      
+
             // Bathroom & Parking
             Text.rich(
               TextSpan(
@@ -300,7 +306,7 @@ class PostDetailPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-      
+
             // Amenities
             if (post['amenities'] != null) ...[
               const Text('Amenities:', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -314,21 +320,21 @@ class PostDetailPage extends StatelessWidget {
               ),
               const SizedBox(height: 12),
             ],
-      
+
             // Nearby
             if (post['nearby'] != null) ...[
               const Text('Nearby Areas:', style: TextStyle(fontWeight: FontWeight.bold)),
               _chipList(Map<String, bool>.fromIterable(List<String>.from(post['nearby']), key: (v) => v.toString(), value: (_) => true)),
               const SizedBox(height: 12),
             ],
-      
+
             // Notes
             if ((post['notes'] ?? '').toString().isNotEmpty) ...[
               const Text('Notes:', style: TextStyle(fontWeight: FontWeight.bold)),
               Text(post['notes']),
               const SizedBox(height: 12),
             ],
-      
+
             // Contact
             if (post['contact'] != null) ...[
               const Text('Contact:', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -339,7 +345,7 @@ class PostDetailPage extends StatelessWidget {
               Text(_formatDate(post['createdAt'])),
               const SizedBox(height: 12),
             ],
-      
+
             // Address
             if ((post['typedAddress'] ?? '').isNotEmpty) ...[
               const Text('Address:', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -347,7 +353,7 @@ class PostDetailPage extends StatelessWidget {
               Text(post['typedAddress']),
               const SizedBox(height: 6),
             ],
-      
+
             const Text('Location:', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
             SizedBox(

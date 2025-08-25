@@ -9,7 +9,6 @@ import 'package:geocoding/geocoding.dart' as geo;
 
 import '../provider/auth_provider.dart';
 import '../provider/post_provider.dart';
-import '../shared_widgets/account_warning_dialog.dart';
 
 class PostPage extends StatefulWidget {
   const PostPage({super.key});
@@ -268,28 +267,19 @@ class _PostPageState extends State<PostPage> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final postProvider = Provider.of<PostProvider>(context, listen: false);
 
+    if (!authProvider.isVerified()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Verify your account through profile page to post a rental.")),
+      );
+      return;
+    }
+
     if (_formKey.currentState!.validate()) {
       final selectedAmenities = _amenities.entries.where((e) => e.value).map((e) => e.key).toList();
       final selectedNearby = _nearby.entries.where((e) => e.value).map((e) => e.key).toList();
       final roomSizes = List.generate(_rooms, (i) => {'width': _roomW[i].text.trim(), 'length': _roomL[i].text.trim()});
       final hallSizes = List.generate(_halls, (i) => {'width': _hallW[i].text.trim(), 'length': _hallL[i].text.trim()});
       final kitchenSizes = List.generate(_kitchens, (i) => {'width': _kitchenW[i].text.trim(), 'length': _kitchenL[i].text.trim()});
-      final contactInfo = <String, dynamic>{
-        'name': authProvider.displayName ?? '',
-        'email': authProvider.email ?? '',
-      };
-      if ((authProvider.secondaryEmail ?? '').isNotEmpty) {
-        contactInfo['secondaryEmail'] = authProvider.secondaryEmail;
-      }
-      if (authProvider.phones.isNotEmpty) {
-        contactInfo['phones'] = authProvider.phones;
-      }
-      if (authProvider.socialMedia.isNotEmpty) {
-        contactInfo['socialMedia'] = authProvider.socialMedia;
-      }
-      if ((authProvider.about ?? '').isNotEmpty) {
-        contactInfo['about'] = authProvider.about;
-      }
       final postData = {
         'title': _titleC.text.trim(),
         'description': _descC.text.trim(),
@@ -325,25 +315,11 @@ class _PostPageState extends State<PostPage> {
     }
   }
 
-  void navigateToPostPage(BuildContext context, AuthProvider authProvider) {
-    final needEmail = !authProvider.isVerified();
-    final needPhone = authProvider.phones.isEmpty;
-
-    if (needEmail || needPhone) {
-      // Show blocking warning
-      showDialog(
-        context: context,
-        barrierDismissible: false, // user cannot dismiss by tapping outside
-        builder: (_) => AccountWarningDialog(
-          needEmailVerification: needEmail,
-          needPhone: needPhone,
-        ),
-      );
-    } else {
-      Navigator.pushNamed(context, '/postPage');
-    }
-  }
-
+  Widget _parkingChip(String value) => ChoiceChip(
+    label: Text(value),
+    selected: _parking == value,
+    onSelected: (_) => setState(() => _parking = value),
+  );
 
   Widget _statusChip(String value) {
     return ChoiceChip(
