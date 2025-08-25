@@ -39,10 +39,10 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: _fetchPosts,
-      child: Scaffold(
-        body: SafeArea(
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: _fetchPosts,
+        child: SafeArea(
           child: Column(
             children: [
               _buildSearchBar(),

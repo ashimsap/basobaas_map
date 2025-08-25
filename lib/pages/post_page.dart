@@ -280,6 +280,22 @@ class _PostPageState extends State<PostPage> {
       final roomSizes = List.generate(_rooms, (i) => {'width': _roomW[i].text.trim(), 'length': _roomL[i].text.trim()});
       final hallSizes = List.generate(_halls, (i) => {'width': _hallW[i].text.trim(), 'length': _hallL[i].text.trim()});
       final kitchenSizes = List.generate(_kitchens, (i) => {'width': _kitchenW[i].text.trim(), 'length': _kitchenL[i].text.trim()});
+      final contactInfo = <String, dynamic>{
+        'name': authProvider.displayName ?? '',
+        'email': authProvider.email ?? '',
+      };
+      if ((authProvider.secondaryEmail ?? '').isNotEmpty) {
+        contactInfo['secondaryEmail'] = authProvider.secondaryEmail;
+      }
+      if (authProvider.phones.isNotEmpty) {
+        contactInfo['phones'] = authProvider.phones;
+      }
+      if (authProvider.socialMedia.isNotEmpty) {
+        contactInfo['socialMedia'] = authProvider.socialMedia;
+      }
+      if ((authProvider.about ?? '').isNotEmpty) {
+        contactInfo['about'] = authProvider.about;
+      }
       final postData = {
         'title': _titleC.text.trim(),
         'description': _descC.text.trim(),
@@ -292,7 +308,6 @@ class _PostPageState extends State<PostPage> {
         'location': {'latitude': _selectedLocation.latitude, 'longitude': _selectedLocation.longitude},
         'amenities': selectedAmenities,
         'nearby': selectedNearby,
-        'contact': {'name': authProvider.displayName ?? '', 'email': authProvider.email ?? ''},
         'negotiable': _negotiable,
         'bathroom': _bathroom,
         'parking': _parking,
@@ -317,9 +332,14 @@ class _PostPageState extends State<PostPage> {
 
   Widget _parkingChip(String value) => ChoiceChip(
     label: Text(value),
-    selected: _parking == value,
-    onSelected: (_) => setState(() => _parking = value),
+    selected: _parking == (value == 'Both' ? 'Bike & Car' : value),
+    onSelected: (_) {
+      setState(() {
+        _parking = value == 'Both' ? 'Bike & Car' : value;
+      });
+    },
   );
+
 
   Widget _statusChip(String value) {
     return ChoiceChip(
@@ -576,6 +596,14 @@ class _PostPageState extends State<PostPage> {
               TextFormField(controller: _priceC, keyboardType: TextInputType.number, decoration: _input('Price (NPR)', prefix: const Text('  रु', style: TextStyle(fontSize: 30))), validator: (v)=>(v==null||v.trim().isEmpty)?'Enter price':null),
               //Negotiable
               CheckboxListTile(value:_negotiable,onChanged:(v)=>setState(()=>_negotiable=v??false),title:const Text('Price negotiable'),controlAffinity: ListTileControlAffinity.leading,contentPadding: EdgeInsets.zero),
+
+              const SizedBox(height: 16),
+              // Parking
+              const Text('Parking', style: TextStyle(fontWeight: FontWeight.w600)),
+              Wrap(
+                spacing: 10,
+                children: ['None', 'Car', 'Bike', 'Both'].map(_parkingChip).toList(),
+              ),
 
               const SizedBox(height: 16),
               // Amenities

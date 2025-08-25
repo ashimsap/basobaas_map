@@ -171,7 +171,6 @@ class _MapWidgetState extends State<MapWidget> {
                     child: PostDetailPage(
                       post: _selectedPost!,
                       scrollController: scrollController,
-                      showAppBar: false,
                     ),
                   ),
                 ],
