@@ -21,7 +21,7 @@ jobs:
         run: npm install
 
       - name: Write Firebase service account key
-        run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" | base64 --decode > serviceAccountKey.json
+        run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > serviceAccountKey.json
 
       - name: Run Rental Status Script
         run: node scripts/checkRentalStatus.js
