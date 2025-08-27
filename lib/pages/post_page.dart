@@ -267,13 +267,6 @@ class _PostPageState extends State<PostPage> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final postProvider = Provider.of<PostProvider>(context, listen: false);
 
-    if (!authProvider.isVerified()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Verify your account through profile page to post a rental.")),
-      );
-      return;
-    }
-
     if (_formKey.currentState!.validate()) {
       final selectedAmenities = _amenities.entries.where((e) => e.value).map((e) => e.key).toList();
       final selectedNearby = _nearby.entries.where((e) => e.value).map((e) => e.key).toList();
@@ -283,6 +276,8 @@ class _PostPageState extends State<PostPage> {
       final contactInfo = <String, dynamic>{
         'name': authProvider.displayName ?? '',
         'email': authProvider.email ?? '',
+        'phones': authProvider.phones?? '',
+        'social' : authProvider.socialMedia?? '',
       };
       if ((authProvider.secondaryEmail ?? '').isNotEmpty) {
         contactInfo['secondaryEmail'] = authProvider.secondaryEmail;
@@ -317,6 +312,7 @@ class _PostPageState extends State<PostPage> {
         'hallSizes': hallSizes,
         'kitchenSizes': kitchenSizes,
         'notes': _notesC.text.trim(),
+        'contact': contactInfo,
         'typedAddress': _locationC.text.trim(),
       };
 

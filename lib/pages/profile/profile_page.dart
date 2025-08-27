@@ -180,7 +180,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       margin: const EdgeInsets.symmetric(vertical: 8),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
-                      color: Colors.orange.withOpacity(0.1),
+                      color: Colors.orange.withAlpha(25),
                       child: ListTile(
                         leading: const Icon(Icons.home, color: Colors.orange),
                         title: const Text("Active Listings",
@@ -208,7 +208,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    color: Colors.yellow.withOpacity(0.1),
+                    color: Colors.yellow.withAlpha(25),
                     child: ListTile(
                       leading: const Icon(Icons.favorite, color: Colors.red),
                       title: const Text("Saved Rentals",

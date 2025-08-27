@@ -330,16 +330,44 @@ class PostDetailPage extends StatelessWidget {
               const SizedBox(height: 12),
             ],
 
-            // Contact
+            // Contact section
             if (post['contact'] != null) ...[
-              const Text('Contact:', style: TextStyle(fontWeight: FontWeight.bold)),
-              Text('Name: ${post['contact']['name'] ?? '-'}'),
-              Text('Email: ${post['contact']['email'] ?? '-'}'),
+              const Text('Contact:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Padding(
+                padding: const EdgeInsets.only(left: 12.0), // indent for sub-items
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Name: ${post['contact']['name'] ?? '-'}'),
+                    Text('Email: ${post['contact']['email'] ?? '-'}'),
+                    Text(
+                      'Phones: ${((post['contact']['phones'] as List<dynamic>?) ?? []).join(', ')}',
+                    ),
+
+                    // Social subsection
+                    if ((post['contact']['social'] as Map<String, dynamic>?)?.isNotEmpty ?? false) ...[
+                      const SizedBox(height: 4),
+                      const Text('Social:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 12.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: (post['contact']['social'] as Map<String, dynamic>)
+                              .entries
+                              .map((e) => Text('${e.key}: ${e.value}'))
+                              .toList(),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
               const SizedBox(height: 6),
               const Text('Posted On:', style: TextStyle(fontWeight: FontWeight.bold)),
               Text(_formatDate(post['createdAt'])),
               const SizedBox(height: 12),
             ],
+
 
             // Address
             if ((post['typedAddress'] ?? '').isNotEmpty) ...[

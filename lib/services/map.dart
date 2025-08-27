@@ -80,12 +80,39 @@ class _MapWidgetState extends State<MapWidget> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text("Map Information"),
-        content: const Text(
-          "This map shows rental posts in your area.\n\n"
-              "Use the search bar to find locations.\n"
-              "Tap markers to see rental details.\n"
-              "Compass resets the map orientation north.\n"
-              "Current location centers the map on you.",
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "This map shows rental posts in your area.\n"
+                  "Use the search bar to find locations.\n"
+                  "Tap markers to see rental details.\n"
+                  "Current location centers the map on you.\n",
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: const [
+                Icon(Icons.location_on, color: Colors.green),
+                SizedBox(width: 8),
+                Text("Vacant"),
+              ],
+            ),
+            Row(
+              children: const [
+                Icon(Icons.location_on, color: Colors.red),
+                SizedBox(width: 8),
+                Text("Rented"),
+              ],
+            ),
+            Row(
+              children: const [
+                Icon(Icons.location_on, color: Colors.orange),
+                SizedBox(width: 8),
+                Text("To be available soon"),
+              ],
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -334,6 +361,7 @@ class _MapWidgetState extends State<MapWidget> {
             bottom: 16,
             right: 16,
             child: FloatingActionButton(
+              shape: const CircleBorder(),
               heroTag: 'current_location',
               onPressed: _goToCurrentLocation,
               child: const Icon(Icons.my_location),

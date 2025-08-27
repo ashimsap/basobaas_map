@@ -80,8 +80,8 @@ class _EditPostPageState extends State<EditPostPage> {
     _bathroom = data['bathroom'] ?? 'Private';
     _negotiable = data['negotiable'] ?? false;
     _status = data['status'] ?? 'Vacant';
-    _availableFrom = data['availableFrom'] != null ? DateTime.tryParse(data['availableFrom']) : null;
-    _rentedSince = data['rentedSince'] != null ? DateTime.tryParse(data['rentedSince']) : null;
+    _availableFrom = data['availableFrom'] ?? null;
+    _rentedSince = data['rentedSince'] ?? null;
 
     _parking = data['parking'] == 'Bike & Car' ? 'Both' : (data['parking'] ?? 'None');
 
@@ -284,6 +284,8 @@ class _EditPostPageState extends State<EditPostPage> {
     final contactInfo = <String, dynamic>{
       'name': authProvider.displayName ?? '',
       'email': authProvider.email ?? '',
+      'phones': authProvider.phones?? '',
+      'social' : authProvider.socialMedia?? '',
     };
     if ((authProvider.secondaryEmail ?? '').isNotEmpty) {
       contactInfo['secondaryEmail'] = authProvider.secondaryEmail;
@@ -321,6 +323,7 @@ class _EditPostPageState extends State<EditPostPage> {
       'hallSizes': hallSizes,
       'kitchenSizes': kitchenSizes,
       'notes': _notesC.text.trim(),
+      'contact': contactInfo,
       'typedAddress': _locationC.text.trim(),
     };
 

@@ -163,7 +163,7 @@ class AuthProvider extends ChangeNotifier {
         'about': null,
       }, SetOptions(merge: true));
       } catch (e) {
-        debugPrint("Firestore init erroe(ignored): $e");
+        debugPrint("Firestore init error(ignored): $e");
       }
       //sign out after account creation for manual login
       await _auth.signOut();
