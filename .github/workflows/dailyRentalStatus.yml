@@ -4,31 +4,51 @@ on:
   schedule:
     # Runs every day at 00:15 Asia/Kathmandu
     - cron: '15 18 * * *'
-  workflow_dispatch: # allows manual trigger
+  workflow_dispatch:
+    inputs:
+      script:
+        description: 'Which script to run?'
+        required: true
+        default: 'python'
+        type: choice
+        options:
+          - js
+          - python
 
 jobs:
   rentalStatus:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Checkout your repository
       - uses: actions/checkout@v3
 
-      # Step 2: Set up Node.js
+      - name: Decode Firebase service account
+        run: |
+          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}" | base64 --decode > serviceAccountKey.json
+
       - name: Set up Node.js
+        if: ${{ github.event.inputs.script == 'js' }}
         uses: actions/setup-node@v3
         with:
           node-version: '20'
 
-      # Step 3: Install dependencies
-      - name: Install dependencies
+      - name: Install Node.js dependencies
+        if: ${{ github.event.inputs.script == 'js' }}
         run: npm install
 
-        # Step 4: Write Firebase service account key
-      - name: Write Firebase service account key
-        run: |
-          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}" | base64 --decode > serviceAccountKey.json
-
-
-      # Step 5: Run your Node.js script
-      - name: Run Rental Status Script
+      - name: Run Node.js Rental Script
+        if: ${{ github.event.inputs.script == 'js' }}
         run: node scripts/checkRentalStatus.js
+
+      - name: Set up Python
+        if: ${{ github.event.inputs.script == 'python' }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        if: ${{ github.event.inputs.script == 'python' }}
+        run: pip install firebase-admin
+
+      - name: Run Python Rental Script
+        if: ${{ github.event.inputs.script == 'python' }}
+        run: python scripts/checkRentalStatus.py
