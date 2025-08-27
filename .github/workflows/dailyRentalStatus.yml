@@ -2,7 +2,7 @@ name: Daily Rental Status Check
 
 on:
   schedule:
-    # Runs every day at midnight Asia/Kathmandu
+    # Runs every day at 00:15 Asia/Kathmandu
     - cron: '15 18 * * *'
   workflow_dispatch: # allows manual trigger
 
@@ -10,20 +10,24 @@ jobs:
   rentalStatus:
     runs-on: ubuntu-latest
     steps:
+      # Step 1: Checkout your repository
       - uses: actions/checkout@v3
 
+      # Step 2: Set up Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '20'
 
+      # Step 3: Install dependencies
       - name: Install dependencies
         run: npm install
 
+      # Step 4: Decode Firebase service account key from base64
       - name: Write Firebase service account key
         run: |
-          printf "%b" "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > serviceAccountKey.json
-      
+          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}" | base64 --decode > serviceAccountKey.json
 
+      # Step 5: Run your Node.js script
       - name: Run Rental Status Script
         run: node scripts/checkRentalStatus.js
