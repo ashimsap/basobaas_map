@@ -11,48 +11,55 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        script: [js, python]  # switch between js or python
+        script: [js, python]  # choose which script to run
     steps:
       - uses: actions/checkout@v3
 
-      # Node.js setup (needed if JS is run)
+      # Node.js setup
       - name: Set up Node.js
         if: matrix.script == 'js'
         uses: actions/setup-node@v3
         with:
           node-version: '20'
 
-      # Python setup (needed if Python is run)
+      # Python setup
       - name: Set up Python
         if: matrix.script == 'python'
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      # Install JS dependencies
+      # Install dependencies
       - name: Install JS dependencies
         if: matrix.script == 'js'
         run: npm install
 
-      # Install Python dependencies
       - name: Install Python dependencies
         if: matrix.script == 'python'
         run: pip install firebase-admin
 
-      # Write Firebase service account key file
+      # Write Firebase service account key
       - name: Write Firebase service account key
-        run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" | base64 --decode > serviceAccountKey.json
-        env:
-          FIREBASE_SERVICE_ACCOUNT_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          # Try secret first, fallback to environment variable
+          if [ -n "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" ]; then
+            echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" | base64 --decode > serviceAccountKey.json
+          elif [ -n "${{ vars.FIREBASE_SERVICE_ACCOUNT }}" ]; then
+            echo "${{ vars.FIREBASE_SERVICE_ACCOUNT }}" | base64 --decode > serviceAccountKey.json
+          else
+            echo "ERROR: No Firebase service account provided!"
+            exit 1
+          fi
 
       # Run JS script
-      - name: Run Rental Status JS Script
+      - name: Run JS script
         if: matrix.script == 'js'
         run: node scripts/checkRentalStatus.js
 
       # Run Python script
-      - name: Run Rental Status Python Script
+      - name: Run Python script
         if: matrix.script == 'python'
         run: python scripts/checkRentalStatus.py
         env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          # Prefer secret, fallback to variable
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT || vars.FIREBASE_SERVICE_ACCOUNT }}
