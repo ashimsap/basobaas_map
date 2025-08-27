@@ -23,10 +23,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # Step 4: Decode Firebase service account key from base64
+        # Step 4: Write Firebase service account key
       - name: Write Firebase service account key
         run: |
           echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}" | base64 --decode > serviceAccountKey.json
+
 
       # Step 5: Run your Node.js script
       - name: Run Rental Status Script
