@@ -9,6 +9,7 @@
   "author": "Ashim Sapkota",
   "license": "MIT",
   "dependencies": {
-    "firebase-admin": "^12.7.0"
+    "firebase-admin": "^12.7.0",
+    "@supabase/supabase-js": "^2.46.1"
   }
 }
