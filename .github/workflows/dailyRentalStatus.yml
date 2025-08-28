@@ -82,12 +82,9 @@ jobs:
       - name: Run JS script
         if: env.SCRIPT == 'js'
         run: node scripts/checkRentalStatus.js
-        env:
-          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
 
       - name: Run Python script
         if: env.SCRIPT == 'python'
         run: python scripts/checkRentalStatus.py
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT || vars.FIREBASE_SERVICE_ACCOUNT }}
-
