@@ -9,7 +9,7 @@ on:
       script:
         description: "Choose script to run (default = python)"
         required: false
-        default: "python"
+        default: "js"
         type: choice
         options:
           - js
