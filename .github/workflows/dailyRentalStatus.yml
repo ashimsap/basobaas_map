@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
     inputs:
       script:
-        description: "choose script to run"
-        required: true
+        description: "Choose script to run (default = python)"
+        required: false
         default: "python"
         type: choice
         options:
@@ -21,33 +21,52 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      # --------------------------
+      # Detect script to run
+      # --------------------------
+      - name: Set SCRIPT variable
+        id: select-script
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "SCRIPT=python" >> $GITHUB_ENV
+          else
+            echo "SCRIPT=${{ github.event.inputs.script }}" >> $GITHUB_ENV
+          fi
+
+      # --------------------------
       # Node.js setup
+      # --------------------------
       - name: Set up Node.js
-        if: matrix.script == 'js'
+        if: env.SCRIPT == 'js'
         uses: actions/setup-node@v3
         with:
           node-version: '20'
 
+      # --------------------------
       # Python setup
+      # --------------------------
       - name: Set up Python
-        if: matrix.script == 'python'
+        if: env.SCRIPT == 'python'
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
+      # --------------------------
       # Install dependencies
+      # --------------------------
       - name: Install JS dependencies
-        if: matrix.script == 'js'
+        if: env.SCRIPT == 'js'
         run: npm install
 
       - name: Install Python dependencies
-        if: matrix.script == 'python'
+        if: env.SCRIPT == 'python'
         run: pip install firebase-admin
 
+      # --------------------------
       # Write Firebase service account key
+      # --------------------------
       - name: Write Firebase service account key
         run: |
-          # Try secret first, fallback to environment variable
           if [ -n "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" ]; then
             echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" | base64 --decode > serviceAccountKey.json
           elif [ -n "${{ vars.FIREBASE_SERVICE_ACCOUNT }}" ]; then
@@ -57,15 +76,15 @@ jobs:
             exit 1
           fi
 
-      # Run JS script
+      # --------------------------
+      # Run scripts
+      # --------------------------
       - name: Run JS script
-        if: matrix.script == 'js'
+        if: env.SCRIPT == 'js'
         run: node scripts/checkRentalStatus.js
 
-      # Run Python script
       - name: Run Python script
-        if: matrix.script == 'python'
+        if: env.SCRIPT == 'python'
         run: python scripts/checkRentalStatus.py
         env:
-          # Prefer secret, fallback to variable
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT || vars.FIREBASE_SERVICE_ACCOUNT }}
