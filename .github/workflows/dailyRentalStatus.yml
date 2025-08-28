@@ -5,13 +5,19 @@ on:
     # Runs every day at 00:15 Asia/Kathmandu
     - cron: '15 18 * * *'
   workflow_dispatch:
+    inputs:
+      script:
+        description: "choose script to run"
+        required: true
+        default: "python"
+        type: choice
+        options:
+          - js
+          - python
 
 jobs:
   rentalStatus:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        script: [js, python]  # choose which script to run
     steps:
       - uses: actions/checkout@v3
 
