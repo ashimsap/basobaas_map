@@ -41,6 +41,7 @@ dependencies:
   provider:
   lottie: ^3.3.0
   persistent_bottom_nav_bar: ^6.2.1
+  url_launcher:
   image_picker:
   font_awesome_flutter: any
   fuzzywuzzy:
