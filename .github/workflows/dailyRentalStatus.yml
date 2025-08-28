@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       script:
-        description: "Choose script to run (default = python)"
+        description: "Choose script to run (default = js)"
         required: false
         default: "js"
         type: choice
