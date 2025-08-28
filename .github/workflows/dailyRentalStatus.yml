@@ -82,6 +82,8 @@ jobs:
       - name: Run JS script
         if: env.SCRIPT == 'js'
         run: node scripts/checkRentalStatus.js
+        env:
+          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
 
       - name: Run Python script
         if: env.SCRIPT == 'python'
