@@ -5,7 +5,18 @@ from datetime import datetime, timezone
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# ===== Decode Firebase service account from Base64 =====
+# ===== Helper: Parse ISO date strings into UTC datetime =====
+def parse_iso_date(date_str):
+    if not date_str:
+        return None
+    try:
+        # Example input: "2025-08-28T09:36:00.431236"
+        return datetime.fromisoformat(date_str).replace(tzinfo=timezone.utc)
+    except Exception as e:
+        print(f"⚠️ Could not parse date {date_str}: {e}")
+        return None
+
+# ===== Load Firebase service account from env =====
 service_account_base64 = os.environ.get("FIREBASE_SERVICE_ACCOUNT")
 if not service_account_base64:
     raise ValueError("FIREBASE_SERVICE_ACCOUNT env variable not set")
@@ -32,40 +43,32 @@ def process_rentals():
             rental = doc.to_dict()
             doc_ref = doc.reference
 
-            rented_since = rental.get("rentedSince")
-            available_from = rental.get("availableFrom")
+            rented_since_dt = parse_iso_date(rental.get("rentedSince"))
+            available_from_dt = parse_iso_date(rental.get("availableFrom"))
             status = rental.get("status")
 
-            if rented_since:
-                rented_since_dt = datetime.fromisoformat(rented_since)
-            else:
-                rented_since_dt = None
-
-            if available_from:
-                available_from_dt = datetime.fromisoformat(available_from)
-            else:
-                available_from_dt = None
-
-            # ===== Auto status update logic =====
+            # ===== Auto status update =====
             if status == "To Be Vacant" and available_from_dt:
                 if available_from_dt <= today:
-                    print(f"Rental {doc.id} changing status To Be Vacant → Vacant")
+                    print(f"✅ Rental {doc.id} changing status To Be Vacant → Vacant")
                     batch.update(doc_ref, {
                         "status": "Vacant",
                         "availableFrom": None
                     })
 
-            # ===== Auto delete logic =====
+            # ===== Auto delete =====
             if rented_since_dt:
-                diff_days = (today - datetime(rented_since_dt.year, rented_since_dt.month, rented_since_dt.day, tzinfo=timezone.utc)).days
+                rented_since_midnight = rented_since_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+                diff_days = (today - rented_since_midnight).days
                 if diff_days >= 5:
-                    print(f"Rental {doc.id} rented {diff_days} days ago → Deleting")
+                    print(f"🗑️ Rental {doc.id} rented {diff_days} days ago → Deleting")
                     batch.delete(doc_ref)
 
         batch.commit()
-        print("Rental status update and cleanup complete!")
+        print("🎉 Rental status update and cleanup complete!")
+
     except Exception as e:
-        print("Error processing rentals:", e)
+        print("❌ Error processing rentals:", e)
 
 # Run manually if executed directly
 if __name__ == "__main__":
