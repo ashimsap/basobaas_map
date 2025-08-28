@@ -1,7 +1,7 @@
 import os
 import base64
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta,timezone
 import firebase_admin
 from firebase_admin import credentials, firestore
 
@@ -35,8 +35,11 @@ def process_rentals():
         rentals_ref = db.collection("rentals")
         docs = rentals_ref.stream()
 
-        now = datetime.now(timezone.utc)
-        today = datetime(year=now.year, month=now.month, day=now.day, tzinfo=timezone.utc)
+        # Nepal is UTC+5:45
+        nepal_offset = timedelta(hours=5, minutes=45)
+        now = datetime.now(timezone.utc) + nepal_offset
+        today = datetime(year=now.year, month=now.month, day=now.day)
+
 
         batch = db.batch()
         for doc in docs:
