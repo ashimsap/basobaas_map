@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       script:
-        description: "Choose script to run (default = python)"
+        description: "Choose script to run (default = Js)"
         required: false
         default: "js"
         type: choice
@@ -82,8 +82,6 @@ jobs:
       - name: Run JS script
         if: env.SCRIPT == 'js'
         run: node scripts/checkRentalStatus.js
-        env:
-          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
 
       - name: Run Python script
         if: env.SCRIPT == 'python'
