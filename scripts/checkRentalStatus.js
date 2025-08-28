@@ -13,7 +13,15 @@ async function processRentals() {
     const snapshot = await rentalsRef.get();
 
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // ignore time
+
+    // Convert to Nepal time
+    const nepalOffset = 5 * 60 + 45; // 5 hours 45 minutes in minutes
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    const nepalTime = new Date(utc + nepalOffset * 60 * 1000);
+
+    // Ignore time portion for "today"
+    const today = new Date(nepalTime.getFullYear(), nepalTime.getMonth(), nepalTime.getDate());
+// ignore time
     const batch = db.batch();
 
     snapshot.forEach((doc) => {

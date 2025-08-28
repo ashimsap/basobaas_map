@@ -3,7 +3,7 @@ name: Daily Rental Status Check
 on:
   schedule:
     # Runs every day at 00:15 Asia/Kathmandu
-    - cron: '15 18 * * *'
+    - cron: '30 18 * * *'
   workflow_dispatch:
     inputs:
       script:
