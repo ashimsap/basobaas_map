@@ -40,9 +40,9 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: _fetchPosts,
-        child: SafeArea(
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _fetchPosts,
           child: Column(
             children: [
               _buildSearchBar(),
@@ -54,7 +54,20 @@ class _HomePageState extends State<HomePage> {
                       return const Center(child: CircularProgressIndicator());
                     }
                     if (postProvider.allPosts.isEmpty) {
-                      return const Center(child: Text("No posts yet."));
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text("No posts yet."),
+                            const SizedBox(height: 12),
+                            ElevatedButton.icon(
+                              onPressed: _fetchPosts,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text("Check Again"),
+                            ),
+                          ],
+                        ),
+                      );
                     }
 
                     return ListView.builder(

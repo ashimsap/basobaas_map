@@ -7,16 +7,19 @@ class ContactSection extends StatelessWidget {
   final Map<String, dynamic> contact;
 
   const ContactSection({super.key, required this.contact});
-
-  // ===== Launchers =====
+//Phone launch
   Future<void> _launchPhone(String phone) async {
-    final uri = Uri(scheme: 'tel', path: phone);
+    // Keep the original number but ensure proper encoding
+    final encodedPhone = Uri.encodeComponent(phone.trim());
+    final uri = Uri.parse('tel:$encodedPhone');
+
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
       debugPrint('⚠️ Cannot launch phone: $phone');
     }
   }
+
 
   Future<void> _launchEmail(String email) async {
     final uri = Uri(scheme: 'mailto', path: email);

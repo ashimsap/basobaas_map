@@ -263,6 +263,38 @@ class _PostPageState extends State<PostPage> {
     });
   }
 
+  void _showConfirmPopup(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // user must tap a button
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Confirmation"),
+          content: const Text(
+            "Please ensure that you have added all necessary and correct information before posting. "
+                "Check your contact info, images, title, description, and other required fields.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // close the popup
+              },
+              child: const Text("Check Again"),
+            ),
+            ElevatedButton(
+              onPressed: (){
+                _submitPost();
+                Navigator.of(context).pop();
+                },
+              child: const Text("Post Rental"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
   void _submitPost() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final postProvider = Provider.of<PostProvider>(context, listen: false);
@@ -650,7 +682,7 @@ class _PostPageState extends State<PostPage> {
               ])),
 
               const SizedBox(height:24),
-              SizedBox(width:double.infinity, child:ElevatedButton(onPressed:_submitPost,child:const Text('Submit Post', style:TextStyle(fontSize:16))))
+              SizedBox(width:double.infinity, child:ElevatedButton(onPressed:() => _showConfirmPopup(context),child:const Text('Submit Post', style:TextStyle(fontSize:16))))
             ],
           ),
         ),
@@ -658,3 +690,5 @@ class _PostPageState extends State<PostPage> {
     );
   }
 }
+// Call this method when the button is pressed
+

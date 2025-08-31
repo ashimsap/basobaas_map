@@ -150,7 +150,7 @@ class PostProvider with ChangeNotifier {
         final descScore = ratio(desc, query);
         final addrScore = ratio(addr, query);
 
-        return titleScore > 30 || descScore > 30 || addrScore > 30;
+        return titleScore > 40 || descScore > 40 || addrScore > 50;
       }).toList();
     }
 
@@ -378,7 +378,7 @@ class PostProvider with ChangeNotifier {
         _allPosts[allIndex] = {..._allPosts[allIndex], ...metadata};
       }
 
-      // Update marker color
+      // Update marker
       final loc = _activeListings[activeIndex]['location'];
       if (loc != null) {
         final markerIndex =
